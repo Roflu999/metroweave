@@ -1,0 +1,11 @@
+{
+  "title": "Natural Earth 1:110m Admin 0 Countries",
+  "source": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson",
+  "license": "Public domain",
+  "licenseUrl": "https://www.naturalearthdata.com/about/terms-of-use/",
+  "snapshotDate": "2026-10-19",
+  "sha256": "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f",
+  "bytes": 838726,
+  "features": 177,
+  "scope": "Generalized global orientation; not street-detail or authoritative boundaries."
+}

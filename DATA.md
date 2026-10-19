@@ -47,3 +47,11 @@ The directory makes all source-listed systems discoverable. It does **not** bund
 ## Delivered snapshot validation
 
 Two independent parsers extracted and compared the source's operating-system rows against the delivered JSON by system name, city, country and decoded article URL: **234 source rows, 234 output rows, zero missing and zero extra**. All map centers were checked for numeric geographic bounds. No construction-table entries are included. These checks establish extraction coverage, not independent factual verification of the source.
+
+## Native imports, physical tracks and offline sources
+
+MetroDreamin imports retain the complete supplied JSON in `importMetadata.original`, plus an explicit conversion report. Supported native/wrapped/partitioned schemas convert station coordinates, grades and notes, waypoint nodes and overrides, line appearance and groups, ordered paths and repeated visits. This is file interoperability; no hosted user database is fetched. Compatible MetroDreamin export expresses service patterns as native lines and physical bends as waypoints, preserves surviving source extras, and includes a compatibility report and MetroWeave extension. MetroWeave-only track topology should be exchanged using full project/workspace formats. An untouched original source can also be exported separately.
+
+The advanced workshop adds one fictional passing loop and an orbital service that completes a ring, branches outward and rejoins it. Its 55 station nodes, 81 track sections and two switches are editable examples, not surveyed railway infrastructure. Explicit tracks carry direction and optional speed limits. Service stop choices can vary between occurrences of a repeated station; non-boarding waypoints never create passenger boarding points.
+
+The offline world overview is Natural Earth 1:110m Admin 0 Countries (177 features), a public-domain global orientation layer, with source URL and checksum in `public/data/world-overview.metadata.json`. It is not street detail or a transit geometry source. Detailed PMTiles/GeoJSON backgrounds are separately supplied by users. Standard OSM web tiles are never prefetched into the offline cache. [OFFLINE.md](OFFLINE.md) documents storage limits, archive formats and the prepared server deployment.

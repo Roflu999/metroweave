@@ -1,15 +1,45 @@
 import type { LatLng, Network, Service } from "./types";
-import { serviceSegmentGeometries } from "./engine";
+import { matchTrackOccurrences, serviceSegmentGeometries } from "./engine";
 
 /** Keep topology valid after editing. Save-time names never interrupt text editing. */
 export function normalizeDraft(network: Network, forSave = false): Network {
   const stations = new Set(network.stations.map((station) => station.id));
   const routes = new Map(network.routes.map((route) => [route.id, route]));
+  const groups = new Set(network.lineGroups?.map((group) => group.id) ?? []);
+  for (const route of network.routes)
+    if (route.groupId && !groups.has(route.groupId)) route.groupId = undefined;
+  const nodeIds = new Set([
+    ...stations,
+    ...(network.junctions?.map((junction) => junction.id) ?? []),
+  ]);
+  if (network.tracks)
+    network.tracks = network.tracks.filter(
+      (track) => nodeIds.has(track.fromId) && nodeIds.has(track.toId),
+    );
+  const tracks = new Map(
+    network.tracks?.map((track) => [track.id, track]) ?? [],
+  );
+  if (network.passingLoops)
+    network.passingLoops = network.passingLoops.filter(
+      (loop) =>
+        stations.has(loop.stationId) &&
+        nodeIds.has(loop.entryId) &&
+        nodeIds.has(loop.exitId) &&
+        [...loop.mainTrackIds, ...loop.bypassTrackIds].every((id) =>
+          tracks.has(id),
+        ),
+    );
   network.services = network.services.filter((service) =>
     routes.has(service.routeId),
   );
   for (const service of network.services) {
     const originalLength = service.stationIds.length;
+    if (service.stopPattern && service.stopPattern.length !== originalLength)
+      service.stopPattern = undefined;
+    if (service.stopPattern)
+      service.stopPattern = service.stopPattern.filter((_, index) =>
+        stations.has(service.stationIds[index]),
+      );
     service.stationIds = service.stationIds.filter((id) => stations.has(id));
     if (service.stationIds.length !== originalLength) service.shape = undefined;
     const ids = new Set(service.stationIds),
@@ -28,6 +58,42 @@ export function normalizeDraft(network: Network, forSave = false): Network {
     service.waypoints = Object.fromEntries(
       Object.entries(service.waypoints).filter(([key]) => keys.has(key)),
     );
+    if (service.trackPath) {
+      const pathNodes: string[] = [];
+      let invalid = !service.trackPath.length && service.stationIds.length > 1;
+      for (const item of service.trackPath) {
+        const track = tracks.get(item.trackId);
+        if (
+          !track ||
+          (track.direction === "forward" &&
+            (item.reverse || service.direction === "both"))
+        ) {
+          invalid = true;
+          break;
+        }
+        const from = item.reverse ? track.toId : track.fromId,
+          to = item.reverse ? track.fromId : track.toId;
+        if (pathNodes.length && pathNodes.at(-1) !== from) {
+          invalid = true;
+          break;
+        }
+        if (!pathNodes.length) pathNodes.push(from);
+        pathNodes.push(to);
+      }
+      if (pathNodes.length && service.loop && pathNodes[0] !== pathNodes.at(-1))
+        invalid = true;
+      if (!invalid && pathNodes.length) {
+        try {
+          matchTrackOccurrences(service, pathNodes, true);
+        } catch {
+          invalid = true;
+        }
+      }
+      if (invalid) {
+        service.trackPath = undefined;
+        service.shape = undefined;
+      }
+    }
   }
   if (forSave) {
     const name = (value: string, fallback: string, max = 300) =>
@@ -39,6 +105,8 @@ export function normalizeDraft(network: Network, forSave = false): Network {
     network.stations.forEach((station, i) => {
       station.name = name(station.name, `Station ${i + 1}`);
       if (station.code !== undefined) station.code = station.code.slice(0, 80);
+      if (station.info !== undefined)
+        station.info = station.info.slice(0, 20_000);
       if (station.transferGroup !== undefined) {
         const group = station.transferGroup
           .trim()
@@ -59,6 +127,18 @@ export function normalizeDraft(network: Network, forSave = false): Network {
         service.name,
         `${routes.get(service.routeId)?.name || `Service ${i + 1}`} · ${service.kind}`,
       );
+    });
+    network.junctions?.forEach((junction, i) => {
+      junction.name = name(junction.name, `Junction ${i + 1}`);
+    });
+    network.tracks?.forEach((track) => {
+      if (track.name !== undefined) track.name = track.name.slice(0, 300);
+    });
+    network.passingLoops?.forEach((loop, i) => {
+      loop.name = name(loop.name, `Passing loop ${i + 1}`);
+    });
+    network.lineGroups?.forEach((group, i) => {
+      group.name = name(group.name, `Line group ${i + 1}`);
     });
   }
   return network;
@@ -139,7 +219,7 @@ export function insertWaypoint(
   )
     return ways;
   // Shape is cleared when custom geometry is edited, so retain its other segments.
-  if (service.shape?.length) {
+  if (service.shape?.length || service.trackPath?.length) {
     for (const {
       fromId: a,
       toId: b,
@@ -193,9 +273,17 @@ export function boundHistory(
     count = 0;
   for (let i = past.length - 1; i >= 0 && count < maxSnapshots; i--) {
     const network = past[i];
-    let snapshotCost = network.stations.length + 1;
+    let snapshotCost =
+      network.stations.length + (network.junctions?.length ?? 0) + 1;
+    for (const track of network.tracks ?? [])
+      snapshotCost += track.geometry.length + 2;
+    if (network.importMetadata)
+      snapshotCost += originalPayloadCost(network.importMetadata.original);
     for (const service of network.services) {
-      snapshotCost += service.stationIds.length + (service.shape?.length || 0);
+      snapshotCost +=
+        service.stationIds.length +
+        (service.shape?.length || 0) +
+        (service.trackPath?.length ?? 0);
       for (const points of Object.values(service.waypoints))
         snapshotCost += points.length;
     }
@@ -204,4 +292,13 @@ export function boundHistory(
     count++;
   }
   return count ? past.slice(-count) : [];
+}
+
+const originalCosts = new WeakMap<object, number>();
+function originalPayloadCost(original: Record<string, unknown>): number {
+  const cached = originalCosts.get(original);
+  if (cached !== undefined) return cached;
+  const cost = Math.max(1, Math.ceil(JSON.stringify(original).length / 16));
+  originalCosts.set(original, cost);
+  return cost;
 }

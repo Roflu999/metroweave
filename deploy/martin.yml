@@ -1,0 +1,6 @@
+# Schema is pinned to the image release, rather than following unreleased main.
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/martin-v1.16.1/schemas/config.json
+listen_addresses: 0.0.0.0:3000
+pmtiles:
+  paths:
+    - /maps

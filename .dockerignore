@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+work
+maps
+*.pmtiles
+*.osm.pbf
+*.osm.bz2
+deploy/maps
+deploy/overpass-db
+deploy/.env

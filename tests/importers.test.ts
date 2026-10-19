@@ -397,3 +397,56 @@ test("OSM import falls back to a second endpoint and honors preexisting cancella
     globalThis.fetch = originalFetch;
   }
 });
+
+test("OSM uses only the configured HTTP endpoint and rejects credentials or non-HTTP protocols", async () => {
+  const originalFetch = globalThis.fetch,
+    urls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    urls.push(String(input));
+    assert.equal(init?.credentials, "omit");
+    return new Response(JSON.stringify(osmFixture()));
+  };
+  try {
+    await importOSM(city, undefined, "http://127.0.0.1:8081/api/interpreter");
+    assert.deepEqual(urls, ["http://127.0.0.1:8081/api/interpreter"]);
+    globalThis.fetch = async (input) => {
+      urls.push(String(input));
+      return new Response("unavailable", { status: 503 });
+    };
+    await assert.rejects(
+      importOSM(
+        city,
+        undefined,
+        "https://overpass.example.org/api/interpreter",
+      ),
+      /could not complete/,
+    );
+    assert.deepEqual(
+      urls,
+      [
+        "http://127.0.0.1:8081/api/interpreter",
+        "https://overpass.example.org/api/interpreter",
+      ],
+      "a configured endpoint never falls back to public servers",
+    );
+    await assert.rejects(
+      importOSM(city, undefined, "file:///private/data"),
+      /HTTP or HTTPS/,
+    );
+    await assert.rejects(
+      importOSM(
+        city,
+        undefined,
+        "https://name:secret@example.org/api/interpreter",
+      ),
+      /cannot contain credentials/,
+    );
+    await assert.rejects(
+      importOSM(city, undefined, "/relative"),
+      /absolute HTTP/,
+    );
+    assert.equal(urls.length, 2, "invalid endpoints never start a request");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -7,7 +7,14 @@ import type {
   Service,
   Station,
 } from "./types";
-import { serviceCoordinates, validateNetwork } from "./engine";
+import {
+  serviceCoordinates,
+  serviceSegmentGeometries,
+  serviceStopsAt,
+  validateNetwork,
+} from "./engine";
+import { copyJSONData } from "./backup";
+export { exportNetworkCSV } from "./backup";
 
 type Row = Record<string, string>;
 const MB = 1024 * 1024;
@@ -36,7 +43,11 @@ const validCoord = (lat: number, lng: number) =>
   Math.abs(lat) <= 90 &&
   Math.abs(lng) <= 180;
 const numeric = (value: unknown) =>
-  value === "" || value === null || value === undefined ? NaN : Number(value);
+  (typeof value === "string" && value.trim() === "") ||
+  value === null ||
+  value === undefined
+    ? NaN
+    : Number(value);
 const text = (value: unknown, fallback = "") =>
   typeof value === "string"
     ? value
@@ -620,10 +631,12 @@ export function importGeoJSON(input: unknown): Network {
       : root.type === "Feature"
         ? [root]
         : [{ type: "Feature", geometry: root, properties: {} }];
-  if (!Array.isArray(features) || features.length > 50000)
-    throw new Error("GeoJSON must contain at most 50,000 features.");
+  if (!Array.isArray(features) || features.length > 150000)
+    throw new Error("GeoJSON must contain at most 150,000 features.");
   const native = object(root.metroweave),
     metadata = object(native.network);
+  if (native.formatVersion !== undefined && native.formatVersion !== 1)
+    throw new Error("Unsupported MetroWeave GeoJSON metadata version.");
   const network = baseNetwork(
     text(
       metadata.name,
@@ -633,6 +646,19 @@ export function importGeoJSON(input: unknown): Network {
   );
   network.city = text(metadata.city);
   network.country = text(metadata.country);
+  if (native.formatVersion === 1) {
+    if (metadata.junctions !== undefined)
+      network.junctions = metadata.junctions as Network["junctions"];
+    if (metadata.tracks !== undefined)
+      network.tracks = metadata.tracks as Network["tracks"];
+    if (metadata.passingLoops !== undefined)
+      network.passingLoops = metadata.passingLoops as Network["passingLoops"];
+    if (metadata.lineGroups !== undefined)
+      network.lineGroups = metadata.lineGroups as Network["lineGroups"];
+    if (metadata.importMetadata !== undefined)
+      network.importMetadata =
+        metadata.importMetadata as Network["importMetadata"];
+  }
   const points: Station[] = [],
     pending: {
       path: LatLng[];
@@ -647,6 +673,11 @@ export function importGeoJSON(input: unknown): Network {
     const feature = object(raw),
       geometry = object(feature.geometry),
       props = object(feature.properties);
+    if (
+      native.formatVersion === 1 &&
+      (props.entity === "junction" || props.entity === "track")
+    )
+      continue;
     if (geometry.type === "Point") {
       const p = coordinates([geometry.coordinates])[0];
       vertices++;
@@ -669,6 +700,12 @@ export function importGeoJSON(input: unknown): Network {
       if (transferGroup) s.transferGroup = transferGroup;
       if (typeof (data.accessible ?? props.accessible) === "boolean")
         s.accessible = (data.accessible ?? props.accessible) as boolean;
+      if (typeof (data.isWaypoint ?? props.isWaypoint) === "boolean")
+        s.isWaypoint = (data.isWaypoint ?? props.isWaypoint) as boolean;
+      if (["above", "at", "below"].includes(text(data.grade ?? props.grade)))
+        s.grade = (data.grade ?? props.grade) as Station["grade"];
+      if (typeof (data.info ?? props.info) === "string")
+        s.info = (data.info ?? props.info) as string;
       points.push(s);
     } else if (
       geometry.type === "LineString" ||
@@ -748,6 +785,12 @@ export function importGeoJSON(input: unknown): Network {
           "monorail",
           "maglev",
           "light-metro",
+          "bus",
+          "brt",
+          "ferry",
+          "gondola",
+          "air",
+          "high-speed-rail",
         ].includes(mode)
           ? (mode as Route["mode"])
           : "metro",
@@ -844,6 +887,10 @@ export function importGeoJSON(input: unknown): Network {
       service.skippedStationIds = serviceData.skippedStationIds.filter(
         (id) => typeof id === "string" && stationIds.includes(id),
       );
+    if (serviceData.stopPattern !== undefined)
+      service.stopPattern = serviceData.stopPattern as boolean[];
+    if (native.formatVersion === 1 && serviceData.trackPath !== undefined)
+      service.trackPath = serviceData.trackPath as Service["trackPath"];
     const waypoints = object(serviceData.waypoints);
     for (const [segment, raw] of Object.entries(waypoints)) {
       if (!Array.isArray(raw)) continue;
@@ -861,13 +908,28 @@ export function importGeoJSON(input: unknown): Network {
         });
     }
     // Native exports distinguish station-connection geometry from a source shape.
-    if (native.formatVersion !== 1 || props.hasSourceShape === true)
+    if (native.formatVersion === 1 && serviceData.shape !== undefined)
+      service.shape = serviceData.shape as LatLng[];
+    else if (native.formatVersion !== 1 || props.hasSourceShape === true)
       service.shape = path;
     network.services.push(service);
   }
   network.routes = [...routeMap.values()];
   if (native.formatVersion === 1 && Array.isArray(metadata.draftServices))
     network.services.push(...(metadata.draftServices as Service[]));
+  if (native.formatVersion === 1 && Array.isArray(metadata.serviceOrder)) {
+    if (
+      metadata.serviceOrder.some((id) => typeof id !== "string") ||
+      new Set(metadata.serviceOrder).size !== metadata.serviceOrder.length
+    )
+      throw new Error(
+        "Native GeoJSON serviceOrder must contain unique service IDs.",
+      );
+    const order = new Map(metadata.serviceOrder.map((id, i) => [id, i]));
+    network.services.sort(
+      (a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity),
+    );
+  }
   if (
     !network.stations.length &&
     !network.services.length &&
@@ -935,6 +997,7 @@ export function exportGeoJSON(network: Network): object {
       network: {
         ...metadata,
         routes: network.routes,
+        serviceOrder: network.services.map((s) => s.id),
         draftServices: network.services.filter((s) => s.stationIds.length < 2),
       },
     },
@@ -945,19 +1008,36 @@ export function exportGeoJSON(network: Network): object {
         properties: { name: s.name, stationId: s.id, station: s },
         geometry: { type: "Point", coordinates: [s.lng, s.lat] },
       })),
+      ...(network.junctions ?? []).map((j) => ({
+        type: "Feature",
+        id: j.id,
+        properties: { entity: "junction", name: j.name, junction: j },
+        geometry: { type: "Point", coordinates: [j.lng, j.lat] },
+      })),
+      ...(network.tracks ?? []).map((t) => ({
+        type: "Feature",
+        id: t.id,
+        properties: { entity: "track", track: t },
+        geometry: {
+          type: "LineString",
+          coordinates: t.geometry.map((p) => [p[1], p[0]]),
+        },
+      })),
       ...network.services
         .filter((s) => s.stationIds.length >= 2)
         .map((s) => {
-          const path: LatLng[] = s.shape?.length
-            ? s.shape
-            : serviceCoordinates(network, s);
-          const { shape: _shape, ...service } = s;
+          const path: LatLng[] = s.trackPath?.length
+            ? serviceCoordinates(network, s)
+            : s.shape?.length
+              ? [...s.shape]
+              : serviceCoordinates(network, s);
+          if (path.length === 1) path.push(path[0]);
           return {
             type: "Feature",
             id: s.id,
             properties: {
               name: s.name,
-              service,
+              service: s,
               route: routeMap.get(s.routeId),
               hasSourceShape: !!s.shape?.length,
             },
@@ -1289,15 +1369,38 @@ async function limitedResponse(
 export async function importOSM(
   city: CatalogEntry,
   signal?: AbortSignal,
+  endpointOverride?: string,
 ): Promise<Network> {
   if (!validCoord(city.lat, city.lng))
     throw new Error("City coordinates are invalid.");
-  const query = `[out:json][timeout:45][maxsize:33554432];(relation["type"="route"]["route"~"^(subway|light_rail|monorail)$"](around:80000,${city.lat},${city.lng});relation["type"="route"]["route"="train"]["service"~"^(urban|metro)$"](around:80000,${city.lat},${city.lng});)->.routes;(.routes;node(r.routes);way(r.routes););out body geom;`;
-  const errors: string[] = [];
-  for (const endpoint of [
+  let endpoints = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-  ]) {
+  ];
+  if (endpointOverride?.trim()) {
+    let url: URL;
+    try {
+      url = new URL(endpointOverride.trim());
+    } catch {
+      throw new Error(
+        "The Overpass endpoint must be an absolute HTTP or HTTPS URL.",
+      );
+    }
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password
+    )
+      throw new Error(
+        "The Overpass endpoint must use HTTP or HTTPS and cannot contain credentials.",
+      );
+    if (url.href.length > 3000)
+      throw new Error("The Overpass endpoint URL is too long.");
+    endpoints = [url.href];
+  }
+  const query = `[out:json][timeout:45][maxsize:33554432];(relation["type"="route"]["route"~"^(subway|light_rail|monorail)$"](around:80000,${city.lat},${city.lng});relation["type"="route"]["route"="train"]["service"~"^(urban|metro)$"](around:80000,${city.lat},${city.lng});)->.routes;(.routes;node(r.routes);way(r.routes););out body geom;`;
+  const errors: string[] = [];
+  for (const endpoint of endpoints) {
     if (signal?.aborted)
       throw new DOMException("Import cancelled.", "AbortError");
     const controller = new AbortController(),
@@ -1309,6 +1412,7 @@ export async function importOSM(
         method: "POST",
         body: new URLSearchParams({ data: query }),
         signal: controller.signal,
+        credentials: "omit",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const raw = await limitedResponse(response, 32 * MB);
@@ -1318,7 +1422,13 @@ export async function importOSM(
       } catch {
         throw new Error("The Overpass server returned an invalid response.");
       }
-      return networkFromOSM(city, data);
+      const network = networkFromOSM(city, data);
+      network.sources.push({
+        title: "Overpass route data endpoint",
+        url: endpoint,
+        accessed: now().slice(0, 10),
+      });
+      return network;
     } catch (e) {
       if (signal?.aborted)
         throw new DOMException("Import cancelled.", "AbortError");
@@ -1333,4 +1443,711 @@ export async function importOSM(
   throw new Error(
     `Live OSM import could not complete. ${errors.join(" · ")}. You can retry later or import an official GTFS ZIP / GeoJSON file.`,
   );
+}
+
+interface MetroDreaminContainer {
+  map: Record<string, unknown>;
+  document: Record<string, unknown>;
+}
+function metroDreaminContainer(
+  input: unknown,
+): MetroDreaminContainer | undefined {
+  const root = object(input);
+  const document = object(
+    root.systemDoc ?? root.systemDocData ?? root.initialSystemDocData,
+  );
+  for (const candidate of [
+    root.map,
+    root.system,
+    root.systemData,
+    root.mapData,
+    object(root.data).map,
+    root.data,
+    root,
+    document,
+  ]) {
+    const map = object(candidate);
+    if (
+      map.stations !== null &&
+      typeof map.stations === "object" &&
+      map.lines !== null &&
+      typeof map.lines === "object"
+    )
+      return { map, document };
+  }
+  const partitions = root.partitions ?? object(root.map).partitions;
+  if (partitions && typeof partitions === "object") {
+    const parts = Array.isArray(partitions)
+      ? partitions
+      : Object.values(object(partitions));
+    if (parts.length > 1000)
+      throw new Error("MetroDreamin export has more than 1,000 partitions.");
+    const map: Record<string, unknown> = {
+      title: document.title ?? root.title,
+    };
+    let found = false;
+    for (const raw of parts) {
+      const part = object(object(raw).data ?? raw);
+      for (const collection of [
+        "stations",
+        "lines",
+        "interchanges",
+        "lineGroups",
+      ]) {
+        if (part[collection] === undefined) continue;
+        found = true;
+        const merged = object(map[collection]);
+        for (const [id, value] of Object.entries(object(part[collection]))) {
+          if (
+            id in merged &&
+            JSON.stringify(merged[id]) !== JSON.stringify(value)
+          )
+            throw new Error(
+              `Conflicting MetroDreamin partition ${collection} ID: ${id}.`,
+            );
+          Object.defineProperty(merged, id, {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+        }
+        map[collection] = merged;
+      }
+    }
+    if (found && map.stations !== undefined && map.lines !== undefined)
+      return { map, document };
+  }
+  return;
+}
+
+export function isMetroDreamin(input: unknown): boolean {
+  return !!metroDreaminContainer(input);
+}
+function sourceEntries(
+  value: unknown,
+  collection: string,
+  maximum: number,
+): [string, Record<string, unknown>][] {
+  if (value === undefined) return [];
+  if (value === null || typeof value !== "object")
+    throw new Error(`MetroDreamin ${collection} must be an object or array.`);
+  const entries: [string, unknown][] = Array.isArray(value)
+    ? value.map((v, i) => [text(object(v).id, String(i)), v])
+    : Object.entries(value);
+  if (entries.length > maximum)
+    throw new Error(
+      `MetroDreamin ${collection} exceeds the ${maximum.toLocaleString()} item limit.`,
+    );
+  const ids = new Set<string>();
+  return entries.map(([id, v]) => {
+    if (!id || ids.has(id))
+      throw new Error(
+        `Duplicate or empty MetroDreamin ${collection} ID: ${id}.`,
+      );
+    ids.add(id);
+    if (v === null || typeof v !== "object" || Array.isArray(v))
+      throw new Error(`MetroDreamin ${collection} ${id} is not an object.`);
+    return [id, object(v)];
+  });
+}
+
+const MD_MODES: Record<string, { mode: Route["mode"]; speed: number }> = {
+  RAPID: { mode: "metro", speed: 60 },
+  LIGHT: { mode: "light-metro", speed: 54 },
+  TRAM: { mode: "tram", speed: 36 },
+  REGIONAL: { mode: "rail", speed: 100 },
+  MLDISTANCE: { mode: "rail", speed: 160 },
+  HSR: { mode: "high-speed-rail", speed: 300 },
+  BUS: { mode: "bus", speed: 24 },
+  BRT: { mode: "brt", speed: 48 },
+  FERRY: { mode: "ferry", speed: 42 },
+  GONDOLA: { mode: "gondola", speed: 20 },
+  AIR: { mode: "air", speed: 600 },
+};
+
+/** Interoperability adapter based on the author's public map schema; imports only a user-provided export. */
+export function importMetroDreamin(input: unknown): Network {
+  const original = copyJSONData(
+    object(input),
+    "MetroDreamin source export",
+    20 * MB,
+  );
+  const located = metroDreaminContainer(original);
+  if (!located)
+    throw new Error(
+      "No MetroDreamin map was found. Expected stations and lines, directly or inside map/system plus optional systemDoc metadata.",
+    );
+  const { map, document } = located;
+  const root = object(original),
+    warnings: string[] = [];
+  let shortened = 0;
+  const label = (raw: unknown, fallback: string, maximum = 300) => {
+    const s = text(raw, fallback).trim() || fallback;
+    if (s.length > maximum) shortened++;
+    return s.slice(0, maximum);
+  };
+  const network = baseNetwork(
+    label(
+      map.title ?? document.title ?? root.title ?? map.name,
+      "Imported MetroDreamin map",
+    ),
+    "imported",
+  );
+  const originalId = text(document.systemId ?? root.systemId ?? map.id);
+  if (originalId) network.id = key("md-map", originalId);
+  network.city = label(map.city ?? document.city ?? root.city, "", 300);
+  network.country = label(
+    map.country ?? document.country ?? root.country,
+    "",
+    300,
+  );
+  network.description = label(
+    map.caption ?? document.caption ?? map.description ?? root.caption,
+    "",
+    20000,
+  );
+  const stations = sourceEntries(map.stations, "stations", 50000),
+    lines = sourceEntries(map.lines, "lines", 3000);
+  const stationMap = new Map<string, Station>(),
+    groupMap = new Map<string, string>();
+  for (const [id, raw] of stations) {
+    const lat = numeric(raw.lat),
+      lng = numeric(raw.lng ?? raw.lon);
+    if (!validCoord(lat, lng))
+      throw new Error(
+        `MetroDreamin station ${id} has invalid latitude/longitude; no partial map was imported.`,
+      );
+    const station: Station = {
+      id: key("md-station", id),
+      name: label(
+        raw.name,
+        raw.isWaypoint === true ? `Waypoint ${id}` : `Station ${id}`,
+      ),
+      lat,
+      lng,
+    };
+    if (typeof raw.isWaypoint === "boolean")
+      station.isWaypoint = raw.isWaypoint;
+    if (["above", "at", "below"].includes(text(raw.grade)))
+      station.grade = raw.grade as Station["grade"];
+    if (typeof raw.info === "string") station.info = label(raw.info, "", 20000);
+    if (raw.code !== undefined) station.code = label(raw.code, "", 80);
+    if (typeof raw.accessible === "boolean")
+      station.accessible = raw.accessible;
+    stationMap.set(id, station);
+    network.stations.push(station);
+  }
+  if (
+    new Set(network.stations.map((s) => s.id)).size !== network.stations.length
+  )
+    throw new Error("Source station identifiers collide after conversion.");
+  const groups = sourceEntries(map.lineGroups, "lineGroups", 3000);
+  if (map.lineGroups !== undefined) {
+    network.lineGroups = groups.map(([id, raw]) => {
+      const groupId = key("md-group", id);
+      groupMap.set(id, groupId);
+      const shown = Array.isArray(root.groupsDisplayed)
+        ? root.groupsDisplayed.map(String).includes(id)
+        : raw.visible !== false;
+      return {
+        id: groupId,
+        name: label(raw.label ?? raw.name, `Group ${id}`),
+        visible: shown,
+      };
+    });
+  }
+  for (const [id, raw] of lines) {
+    const modeKey = text(raw.mode, "RAPID").toUpperCase(),
+      definition = MD_MODES[modeKey];
+    if (!definition)
+      throw new Error(
+        `MetroDreamin line ${id} uses unsupported mode ${modeKey}; the original map was not partially imported.`,
+      );
+    const route: Route = {
+      id: key("md-route", id),
+      name: label(raw.name, `Line ${id}`),
+      shortName: label(raw.shortName ?? raw.ref ?? raw.name, id, 40),
+      color: color(raw.color ?? raw.colour, network.routes.length),
+      mode: definition.mode,
+      visible: raw.visible !== false,
+    };
+    if (!/^#?[0-9a-f]{6}$/i.test(text(raw.color ?? raw.colour)))
+      warnings.push(
+        `Line ${id} had an unsupported color and uses a fallback; the original color remains archived.`,
+      );
+    const group = text(raw.lineGroupId ?? raw.groupId);
+    if (groupMap.has(group)) route.groupId = groupMap.get(group);
+    else if (group)
+      warnings.push(
+        `Line ${id} references missing group ${group}; its original group reference is archived.`,
+      );
+    if (
+      !group &&
+      Array.isArray(root.groupsDisplayed) &&
+      !root.groupsDisplayed.map(String).includes(modeKey)
+    )
+      route.visible = false;
+    if (
+      [
+        "circle",
+        "diamond",
+        "heart",
+        "plus",
+        "star",
+        "square",
+        "triangle",
+        "hexagon",
+        "pentagon",
+      ].includes(text(raw.icon))
+    )
+      route.icon = raw.icon as Route["icon"];
+    else if (raw.icon)
+      warnings.push(
+        `Line ${id} icon ${text(raw.icon)} is archived but has no supported badge representation.`,
+      );
+    if (["solid", "dashed", "dotted", "dash-dot"].includes(text(raw.pattern)))
+      route.pattern = raw.pattern as Route["pattern"];
+    network.routes.push(route);
+    if (!Array.isArray(raw.stationIds))
+      throw new Error(
+        `MetroDreamin line ${id} has no ordered stationIds array.`,
+      );
+    if (raw.stationIds.length > 20000)
+      throw new Error(
+        `MetroDreamin line ${id} exceeds 20,000 station/waypoint visits.`,
+      );
+    const ordered = raw.stationIds.map((v) => text(v));
+    for (const stopId of ordered)
+      if (!stationMap.has(stopId))
+        throw new Error(
+          `MetroDreamin line ${id} references missing station ${stopId}; no partial map was imported.`,
+        );
+    const ids = ordered.map((sourceId) => stationMap.get(sourceId)!.id);
+    const service = baseService(key("md-service", id), route.id, ids);
+    service.name = route.name;
+    const overrides = new Set(
+      Array.isArray(raw.waypointOverrides)
+        ? raw.waypointOverrides.map(String)
+        : [],
+    );
+    service.stopPattern = ordered.map(
+      (sourceId) =>
+        !stationMap.get(sourceId)!.isWaypoint && !overrides.has(sourceId),
+    );
+    service.skippedStationIds = [
+      ...new Set(ids.filter((_, i) => !service.stopPattern![i])),
+    ];
+    service.kind = overrides.size ? "express" : "local";
+    service.direction = raw.direction === "forward" ? "forward" : "both";
+    service.loop =
+      raw.loop === true || (ids.length > 2 && ids[0] === ids.at(-1));
+    service.speed = definition.speed;
+    if (numeric(raw.headway) >= 0.25 && numeric(raw.headway) <= 1440)
+      service.headway = Number(raw.headway);
+    if (numeric(raw.dwell) >= 0 && numeric(raw.dwell) <= 1800)
+      service.dwell = Number(raw.dwell);
+    if (ids.length >= 2)
+      service.shape = ordered.map((sourceId) =>
+        position(stationMap.get(sourceId)!),
+      );
+    network.services.push(service);
+  }
+  // Source interchanges form connected walking groups, including overlapping exported groups.
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    let current = id;
+    while (parent.has(current) && parent.get(current) !== current)
+      current = parent.get(current)!;
+    let next = id;
+    while (parent.has(next) && parent.get(next) !== current) {
+      const previous = parent.get(next)!;
+      parent.set(next, current);
+      next = previous;
+    }
+    return current;
+  };
+  for (const [id, raw] of sourceEntries(
+    map.interchanges,
+    "interchanges",
+    10000,
+  )) {
+    if (!Array.isArray(raw.stationIds)) {
+      warnings.push(
+        `Interchange ${id} had no stationIds; its full data is archived.`,
+      );
+      continue;
+    }
+    const members = raw.stationIds.map(String);
+    if (members.some((sourceId) => !stationMap.has(sourceId)))
+      throw new Error(
+        `MetroDreamin interchange ${id} references a missing station.`,
+      );
+    for (const sourceId of members) {
+      if (!parent.has(sourceId)) parent.set(sourceId, sourceId);
+      if (members[0]) parent.set(find(sourceId), find(members[0]));
+    }
+  }
+  for (const [sourceId, station] of stationMap)
+    if (parent.has(sourceId))
+      station.transferGroup = key("md-transfer", find(sourceId));
+  network.center = centerOf(network.stations);
+  const centroid = object(document.centroid ?? map.centroid ?? root.center);
+  if (validCoord(numeric(centroid.lat), numeric(centroid.lng)))
+    network.center = [Number(centroid.lat), Number(centroid.lng)];
+  if (
+    numeric(map.zoom ?? document.zoom) >= 1 &&
+    numeric(map.zoom ?? document.zoom) <= 22
+  )
+    network.zoom = Number(map.zoom ?? document.zoom);
+  const updated = document.lastUpdated ?? map.lastUpdated;
+  if (
+    (typeof updated === "string" || typeof updated === "number") &&
+    Number.isFinite(new Date(updated).getTime())
+  )
+    network.updatedAt = new Date(updated).toISOString();
+  if (shortened)
+    warnings.push(
+      `${shortened} labels or text fields were shortened to editor limits; complete original text is retained in the archived source.`,
+    );
+  warnings.push(
+    "All provided source JSON is retained in importMetadata.original, including unrecognized properties. This imports the supplied file only, not MetroDreamin accounts or its public map database.",
+  );
+  warnings.push(
+    "Ordered station/waypoint visits, per-line waypoint overrides, coordinates, colors, supported modes, grades, string station info, line groups and supported badge icons are editable. Other source properties remain archived.",
+  );
+  warnings.push(
+    "Headway and dwell are planning assumptions unless supplied as explicit fields. Mode speeds are editable estimates. Animation acceleration/pause settings, score/ridership/cost results, map styling, community content and ownership are not operational models. Walking interchanges use MetroWeave’s configured planning rules.",
+  );
+  if (
+    stations.some(([, s]) => s.info !== undefined && typeof s.info !== "string")
+  )
+    warnings.push(
+      "Structured station info remains intact in the original archive; only string info is copied to the editable station description.",
+    );
+  if (warnings.length > 1000) {
+    const additional = warnings.length - 999;
+    warnings.splice(999);
+    warnings.push(
+      `${additional} additional conversion notices were condensed; all affected source fields remain in the archived original.`,
+    );
+  }
+  network.importMetadata = {
+    format: "metrodreamin",
+    importedAt: now(),
+    lossReport: warnings,
+    original,
+  };
+  network.sources = [
+    {
+      title: "MetroDreamin public map schema",
+      url: "https://github.com/the-nemz/metro-dreamin/blob/master/util/constants.js",
+      accessed: now().slice(0, 10),
+    },
+  ];
+  if (originalId)
+    network.sources.unshift({
+      title: `Original MetroDreamin map: ${network.name}`,
+      url: `https://metrodreamin.com/view/${encodeURIComponent(originalId)}`,
+      accessed: now().slice(0, 10),
+    });
+  return validateNetwork(network);
+}
+
+/** A MetroDreamin-schema map plus a MetroWeave extension retaining features the source schema cannot represent. */
+export function exportNetworkToMetroDreamin(input: Network): object {
+  const n = validateNetwork(input);
+  const stationLookup = new Map(n.stations.map((s) => [s.id, s])),
+    routeLookup = new Map(n.routes.map((r) => [r.id, r]));
+  const original =
+    n.importMetadata?.format === "metrodreamin"
+      ? copyJSONData(
+          n.importMetadata.original,
+          "Original source export",
+          20 * MB,
+        )
+      : {};
+  const container = metroDreaminContainer(original);
+  const oldMap = container?.map ?? {},
+    output: Record<string, unknown> = original;
+  const map =
+    output.stations !== undefined && output.lines !== undefined
+      ? output
+      : { ...oldMap };
+  if (map !== output) output.map = map;
+  const oldStations = sourceEntries(oldMap.stations, "stations", 50000),
+    oldLines = sourceEntries(oldMap.lines, "lines", 3000),
+    oldGroups = sourceEntries(oldMap.lineGroups, "lineGroups", 3000);
+  const oldStationById = new Map(
+    oldStations.map(([id, data]) => [key("md-station", id), { id, data }]),
+  );
+  const oldLineByService = new Map(
+    oldLines.map(([id, data]) => [key("md-service", id), { id, data }]),
+  );
+  const oldLineByRoute = new Map(
+    oldLines.map(([id, data]) => [key("md-route", id), { id, data }]),
+  );
+  const oldGroupById = new Map(
+    oldGroups.map(([id, data]) => [key("md-group", id), { id, data }]),
+  );
+  const usedStationIds = new Set(oldStations.map(([id]) => id)),
+    usedLineIds = new Set(oldLines.map(([id]) => id)),
+    usedGroupIds = new Set(oldGroups.map(([id]) => id));
+  const fresh = (used: Set<string>) => {
+    let i = used.size;
+    while (used.has(String(i))) i++;
+    const id = String(i);
+    used.add(id);
+    return id;
+  };
+  const stationIds = new Map<string, string>(),
+    groupIds = new Map<string, string>();
+  const nativeStations: Record<string, unknown> = {},
+    nativeLines: Record<string, unknown> = {},
+    nativeGroups: Record<string, unknown> = {},
+    nativeInterchanges: Record<string, unknown> = {};
+  const define = (
+    target: Record<string, unknown>,
+    id: string,
+    value: unknown,
+  ) =>
+    Object.defineProperty(target, id, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  for (const station of n.stations) {
+    const old = oldStationById.get(station.id),
+      id = old?.id ?? fresh(usedStationIds);
+    stationIds.set(station.id, id);
+    const data: Record<string, unknown> = {
+      ...old?.data,
+      id,
+      name: station.name,
+      lat: station.lat,
+      lng: station.lng,
+    };
+    if (station.isWaypoint) data.isWaypoint = true;
+    else delete data.isWaypoint;
+    if (station.grade !== undefined) data.grade = station.grade;
+    else delete data.grade;
+    if (station.info !== undefined) data.info = station.info;
+    if (station.code !== undefined) data.code = station.code;
+    if (station.accessible !== undefined) data.accessible = station.accessible;
+    define(nativeStations, id, data);
+  }
+  for (const group of n.lineGroups ?? []) {
+    const old = oldGroupById.get(group.id),
+      id = old?.id ?? fresh(usedGroupIds);
+    groupIds.set(group.id, id);
+    define(nativeGroups, id, {
+      ...old?.data,
+      id,
+      label: group.name,
+      visible: group.visible,
+    });
+  }
+  const report = [
+    "Each service pattern is exported as its own MetroDreamin line. Original unknown source fields remain present when their source object still exists. Use MetroWeave project/workspace JSON for a lossless editable backup.",
+  ];
+  const waypointCache = new Map<string, string>();
+  let nativeStationCount = n.stations.length;
+  for (const station of n.stations.filter((s) => s.isWaypoint))
+    waypointCache.set(
+      `${station.lat}|${station.lng}`,
+      stationIds.get(station.id)!,
+    );
+  const waypoint = (p: LatLng, label = "Geometry waypoint") => {
+    const coordinateKey = `${p[0]}|${p[1]}`,
+      existing = waypointCache.get(coordinateKey);
+    if (existing) return existing;
+    if (nativeStationCount >= 50000)
+      throw new Error(
+        "MetroDreamin-compatible geometry exceeds 50,000 station/waypoint nodes. Export a MetroWeave project JSON instead.",
+      );
+    nativeStationCount++;
+    const id = fresh(usedStationIds);
+    define(nativeStations, id, {
+      id,
+      lat: p[0],
+      lng: p[1],
+      name: label,
+      isWaypoint: true,
+    });
+    waypointCache.set(coordinateKey, id);
+    return id;
+  };
+  const modes: Record<Route["mode"], string> = {
+    metro: "RAPID",
+    "light-metro": "LIGHT",
+    tram: "TRAM",
+    rail: "REGIONAL",
+    "high-speed-rail": "HSR",
+    bus: "BUS",
+    brt: "BRT",
+    ferry: "FERRY",
+    gondola: "GONDOLA",
+    air: "AIR",
+    monorail: "RAPID",
+    maglev: "HSR",
+  };
+  const patterns = [...n.services];
+  for (const route of n.routes)
+    if (!patterns.some((s) => s.routeId === route.id))
+      patterns.push(baseService(`export-draft-${route.id}`, route.id, []));
+  let mixedOccurrences = 0,
+    extraModes = 0;
+  for (const service of patterns) {
+    const route = routeLookup.get(service.routeId)!;
+    const old = oldLineByService.get(service.id),
+      fallback = oldLineByRoute.get(route.id);
+    const id = old && !(old.id in nativeLines) ? old.id : fresh(usedLineIds);
+    const prior = old?.data ?? fallback?.data ?? {};
+    const sourceMode = text(prior.mode, "RAPID").toUpperCase();
+    const mode =
+      MD_MODES[sourceMode]?.mode === route.mode
+        ? sourceMode
+        : modes[route.mode];
+    if (route.mode === "monorail" || route.mode === "maglev") extraModes++;
+    const visits = new Map<string, Set<boolean>>();
+    service.stationIds.forEach((stationId, i) => {
+      const set = visits.get(stationId) ?? new Set<boolean>();
+      set.add(serviceStopsAt(service, i));
+      visits.set(stationId, set);
+    });
+    const stopId = (stationId: string, occurrence: number) => {
+      const station = stationLookup.get(stationId)!;
+      if (
+        !serviceStopsAt(service, occurrence) &&
+        visits.get(stationId)!.size > 1 &&
+        !station.isWaypoint
+      ) {
+        mixedOccurrences++;
+        return waypoint(
+          [station.lat, station.lng],
+          `Pass-through at ${station.name}`,
+        );
+      }
+      return stationIds.get(stationId)!;
+    };
+    const ordered: string[] = service.stationIds.length
+      ? [stopId(service.stationIds[0], 0)]
+      : [];
+    for (const segment of serviceSegmentGeometries(n, service)) {
+      for (const p of segment.coordinates.slice(1, -1))
+        ordered.push(waypoint(p));
+      ordered.push(stopId(segment.toId, segment.toIndex));
+    }
+    const overrides = [
+      ...new Set(
+        service.stationIds
+          .filter(
+            (stationId, i) =>
+              !serviceStopsAt(service, i) &&
+              visits.get(stationId)!.size === 1 &&
+              !stationLookup.get(stationId)?.isWaypoint,
+          )
+          .map((stationId) => stationIds.get(stationId)!),
+      ),
+    ];
+    const data: Record<string, unknown> = {
+      ...prior,
+      id,
+      name: service.name,
+      color: route.color,
+      mode,
+      stationIds: ordered,
+      waypointOverrides: overrides,
+      headway: service.headway,
+      dwell: service.dwell,
+      direction: service.direction,
+      visible: route.visible,
+    };
+    if (route.groupId && groupIds.has(route.groupId))
+      data.lineGroupId = groupIds.get(route.groupId);
+    else delete data.lineGroupId;
+    if (
+      route.icon &&
+      ["circle", "diamond", "heart", "plus", "star"].includes(route.icon)
+    )
+      data.icon = route.icon;
+    else delete data.icon;
+    if (route.pattern !== undefined) data.pattern = route.pattern;
+    define(nativeLines, id, data);
+  }
+  const walkingGroups = new Map<string, string[]>();
+  for (const station of n.stations)
+    if (station.transferGroup) {
+      const members = walkingGroups.get(station.transferGroup) ?? [];
+      members.push(stationIds.get(station.id)!);
+      walkingGroups.set(station.transferGroup, members);
+    }
+  let interchangeIndex = 0;
+  for (const members of walkingGroups.values())
+    if (members.length > 1) {
+      const id = String(interchangeIndex++);
+      define(nativeInterchanges, id, { id, stationIds: members });
+    }
+  map.title = n.name;
+  map.caption = n.description;
+  map.stations = nativeStations;
+  map.lines = nativeLines;
+  map.lineGroups = nativeGroups;
+  map.interchanges = nativeInterchanges;
+  output.systemDoc = {
+    ...container?.document,
+    title: n.name,
+    caption: n.description,
+    lastUpdated: Date.parse(n.updatedAt),
+    centroid: { lat: n.center[0], lng: n.center[1] },
+  };
+  output.meta = {
+    ...object(output.meta),
+    nextStationId: fresh(usedStationIds),
+    nextLineId: fresh(usedLineIds),
+    nextLineGroupId: fresh(usedGroupIds),
+    nextInterchangeId: String(interchangeIndex),
+  };
+  output.groupsDisplayed = [
+    ...new Set([
+      ...(n.lineGroups ?? [])
+        .filter((g) => g.visible)
+        .map((g) => groupIds.get(g.id)),
+      ...Object.values(nativeLines)
+        .map(object)
+        .filter((line) => !line.lineGroupId && line.visible !== false)
+        .map((line) => text(line.mode)),
+    ]),
+  ];
+  if (mixedOccurrences)
+    report.push(
+      `${mixedOccurrences} repeated station visits have differing stopping flags; pass-through visits become separate waypoint nodes because MetroDreamin applies overrides by station ID.`,
+    );
+  if (extraModes)
+    report.push(
+      `${extraModes} monorail/maglev patterns use the nearest MetroDreamin mode; the exact modes remain in the MetroWeave extension.`,
+    );
+  report.push(
+    "Physical track/junction/passing-loop identities, occurrence stop patterns, planning assumptions and source import reports are retained in the MetroWeave extension. MetroDreamin may ignore that extension and line direction/dash properties.",
+  );
+  const { importMetadata: provenance, ...project } = n;
+  output.metroweave = {
+    ...object(output.metroweave),
+    format: "metroweave-compatible-export",
+    version: 1,
+    project,
+    ...(provenance
+      ? {
+          originalSource: provenance.original,
+          sourceImportMetadata: {
+            format: provenance.format,
+            importedAt: provenance.importedAt,
+            lossReport: provenance.lossReport,
+          },
+        }
+      : {}),
+    compatibilityReport: report,
+  };
+  return copyJSONData(output, "MetroDreamin-compatible export", 100 * MB);
 }

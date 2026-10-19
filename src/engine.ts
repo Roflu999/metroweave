@@ -1,4 +1,17 @@
-import type { LatLng, Network, Route, Service, Source, Station } from "./types";
+import type {
+  LatLng,
+  Network,
+  Route,
+  Service,
+  Source,
+  Station,
+  Track,
+  TrackTraversal,
+  Junction,
+  PassingLoop,
+  ImportMetadata,
+  LineGroup,
+} from "./types";
 
 /** Coordinates throughout the app are [latitude, longitude]. Distances are kilometres. */
 export function uid(prefix = "id"): string {
@@ -42,6 +55,264 @@ export interface ServiceSegment {
   toIndex: number;
   coordinates: LatLng[];
   distance: number;
+  travelMinutes: number;
+}
+
+export function serviceStopsAt(service: Service, occurrence: number): boolean {
+  if (
+    !Number.isInteger(occurrence) ||
+    occurrence < 0 ||
+    occurrence >= service.stationIds.length
+  )
+    return false;
+  return (
+    service.stopPattern?.[occurrence] ??
+    !service.skippedStationIds.includes(service.stationIds[occurrence])
+  );
+}
+
+export function isServiceVisible(network: Network, service: Service): boolean {
+  const route = network.routes.find((route) => route.id === service.routeId);
+  return (
+    !!route?.visible &&
+    (!route.groupId ||
+      network.lineGroups?.find((group) => group.id === route.groupId)
+        ?.visible !== false)
+  );
+}
+
+const endpointMaps = new WeakMap<
+  Network,
+  {
+    stations: Station[];
+    stationCount: number;
+    junctions: Junction[] | undefined;
+    junctionCount: number;
+    nodes: Map<string, Station | Junction>;
+  }
+>();
+function endpointMap(network: Network): Map<string, Station | Junction> {
+  const cached = endpointMaps.get(network);
+  if (
+    cached &&
+    cached.stations === network.stations &&
+    cached.stationCount === network.stations.length &&
+    cached.junctions === network.junctions &&
+    cached.junctionCount === (network.junctions?.length ?? 0)
+  )
+    return cached.nodes;
+  const nodes = new Map<string, Station | Junction>(
+    [...network.stations, ...(network.junctions ?? [])].map((node) => [
+      node.id,
+      node,
+    ]),
+  );
+  endpointMaps.set(network, {
+    stations: network.stations,
+    stationCount: network.stations.length,
+    junctions: network.junctions,
+    junctionCount: network.junctions?.length ?? 0,
+    nodes,
+  });
+  return nodes;
+}
+const physicalTrackMaps = new WeakMap<
+  Network,
+  { tracks: Track[] | undefined; count: number; map: Map<string, Track> }
+>();
+function physicalTrackMap(network: Network): Map<string, Track> {
+  const cached = physicalTrackMaps.get(network);
+  if (
+    cached &&
+    cached.tracks === network.tracks &&
+    cached.count === (network.tracks?.length ?? 0)
+  )
+    return cached.map;
+  const map = new Map(network.tracks?.map((track) => [track.id, track]) ?? []);
+  physicalTrackMaps.set(network, {
+    tracks: network.tracks,
+    count: network.tracks?.length ?? 0,
+    map,
+  });
+  return map;
+}
+
+export function trackCoordinates(
+  network: Network,
+  track: Track,
+  reverse = false,
+): LatLng[] {
+  const nodes = endpointMap(network);
+  const from = nodes.get(track.fromId),
+    to = nodes.get(track.toId);
+  if (!from || !to)
+    throw new Error(`Track ${track.id} references a missing endpoint`);
+  const coordinates = deduplicate([
+    [from.lat, from.lng],
+    ...track.geometry.slice(1, -1),
+    [to.lat, to.lng],
+  ]);
+  return reverse ? coordinates.reverse() : coordinates;
+}
+
+export interface ResolvedTrackSegment {
+  trackId: string;
+  fromId: string;
+  toId: string;
+  reverse: boolean;
+  coordinates: LatLng[];
+  distance: number;
+  travelMinutes: number;
+}
+
+export function resolveTrackPath(
+  network: Network,
+  service: Service,
+): ResolvedTrackSegment[] {
+  const tracks = physicalTrackMap(network),
+    nodes = endpointMap(network);
+  return (service.trackPath ?? []).map((traversal) => {
+    const track = tracks.get(traversal.trackId);
+    if (!track)
+      throw new Error(
+        `Service ${service.id} references missing track ${traversal.trackId}`,
+      );
+    const fromId = traversal.reverse ? track.toId : track.fromId,
+      toId = traversal.reverse ? track.fromId : track.toId;
+    const from = nodes.get(fromId),
+      to = nodes.get(toId);
+    if (!from || !to)
+      throw new Error(`Track ${track.id} references a missing endpoint`);
+    const interior = track.geometry.slice(1, -1);
+    const coordinates = deduplicate([
+      [from.lat, from.lng],
+      ...(traversal.reverse ? interior.reverse() : interior),
+      [to.lat, to.lng],
+    ]);
+    const distance = lineDistance(coordinates);
+    return {
+      trackId: track.id,
+      fromId,
+      toId,
+      reverse: !!traversal.reverse,
+      coordinates,
+      distance,
+      travelMinutes:
+        (distance /
+          Math.min(service.speed, track.speedLimit ?? service.speed)) *
+        60,
+    };
+  });
+}
+
+export function trackPathNodes(network: Network, service: Service): string[] {
+  const path = resolveTrackPath(network, service);
+  return path.length
+    ? [path[0].fromId, ...path.map((segment) => segment.toId)]
+    : [];
+}
+
+/** Only an explicitly listed, stopping occurrence can become a boarding point. */
+export function matchTrackOccurrences(
+  service: Service,
+  nodeIds: string[],
+  strict = false,
+): { occurrence: number; nodeIndex: number }[] {
+  const required = new Map<number, number>();
+  const positions = new Map<string, number[]>();
+  nodeIds.forEach((id, index) => {
+    if (!positions.has(id)) positions.set(id, []);
+    positions.get(id)!.push(index);
+  });
+  const nextIndex = (id: string, cursor: number) => {
+    const indexes = positions.get(id) ?? [];
+    let left = 0,
+      right = indexes.length;
+    while (left < right) {
+      const mid = (left + right) >> 1;
+      if (indexes[mid] < cursor) left = mid + 1;
+      else right = mid;
+    }
+    return indexes[left] ?? -1;
+  };
+  let cursor = 0;
+  for (let i = 0; i < service.stationIds.length; i++) {
+    if (!serviceStopsAt(service, i)) continue;
+    const index = nextIndex(service.stationIds[i], cursor);
+    if (index < 0) {
+      if (strict)
+        throw new Error(
+          `Stopping station ${service.stationIds[i]} occurrence ${i + 1} is missing or out of order in the track path`,
+        );
+      continue;
+    }
+    required.set(i, index);
+    cursor = index + 1;
+  }
+  const matches: { occurrence: number; nodeIndex: number }[] = [];
+  const limits = new Array<number>(service.stationIds.length);
+  let nextRequired = nodeIds.length;
+  for (let i = service.stationIds.length - 1; i >= 0; i--) {
+    limits[i] = nextRequired;
+    if (required.has(i)) nextRequired = required.get(i)!;
+  }
+  cursor = 0;
+  for (let i = 0; i < service.stationIds.length; i++) {
+    const requiredIndex = required.get(i);
+    if (requiredIndex !== undefined) {
+      matches.push({ occurrence: i, nodeIndex: requiredIndex });
+      cursor = requiredIndex + 1;
+      continue;
+    }
+    const index = nextIndex(service.stationIds[i], cursor);
+    if (index >= 0 && index < limits[i]) {
+      matches.push({ occurrence: i, nodeIndex: index });
+      cursor = index + 1;
+    }
+  }
+  return matches;
+}
+
+function physicalServiceSegments(
+  network: Network,
+  service: Service,
+): ServiceSegment[] {
+  const path = resolveTrackPath(network, service);
+  if (!path.length) return [];
+  const nodes = [path[0].fromId, ...path.map((segment) => segment.toId)];
+  const matches = matchTrackOccurrences(service, nodes);
+  const segments: ServiceSegment[] = [];
+  const add = (
+    from: { occurrence: number; nodeIndex: number },
+    to: { occurrence: number; nodeIndex: number },
+    wrap = false,
+  ) => {
+    const parts = wrap
+      ? [...path.slice(from.nodeIndex), ...path.slice(0, to.nodeIndex)]
+      : path.slice(from.nodeIndex, to.nodeIndex);
+    if (!parts.length) return;
+    segments.push({
+      fromId: service.stationIds[from.occurrence],
+      toId: service.stationIds[to.occurrence],
+      fromIndex: from.occurrence,
+      toIndex: to.occurrence,
+      coordinates: deduplicate(parts.flatMap((part) => part.coordinates)),
+      distance: parts.reduce((sum, part) => sum + part.distance, 0),
+      travelMinutes: parts.reduce((sum, part) => sum + part.travelMinutes, 0),
+    });
+  };
+  for (let i = 1; i < matches.length; i++) add(matches[i - 1], matches[i]);
+  if (service.loop && matches.length) {
+    const first = matches[0],
+      last = matches.at(-1)!;
+    const explicitClosure =
+      first.nodeIndex === 0 &&
+      last.nodeIndex === path.length &&
+      service.stationIds[first.occurrence] ===
+        service.stationIds[last.occurrence];
+    if (!explicitClosure) add(last, first, true);
+  }
+  return segments;
 }
 
 /** Match occurrences monotonically, so two visits to a crossing remain separate. */
@@ -97,6 +368,8 @@ function serviceSegments(
     network.stations.map((station) => [station.id, station]),
   ),
 ): ServiceSegment[] {
+  if (service.trackPath?.length)
+    return physicalServiceSegments(network, service);
   const ids = [...service.stationIds];
   if (service.loop && ids.length > 1 && ids[0] !== ids.at(-1)) ids.push(ids[0]);
   const stops = ids
@@ -124,13 +397,15 @@ function serviceSegments(
           ? shape.slice(positions[i - 1], positions[i] + 1)
           : []);
     const coordinates = deduplicate([from, ...middle, to]);
+    const distance = lineDistance(coordinates);
     segments.push({
       fromId: ids[i - 1],
       toId: ids[i],
       fromIndex: i - 1,
       toIndex: i === service.stationIds.length ? 0 : i,
       coordinates,
-      distance: lineDistance(coordinates),
+      distance,
+      travelMinutes: (distance / service.speed) * 60,
     });
   }
   return segments;
@@ -174,6 +449,12 @@ export function serviceCoordinates(
   network: Network,
   service: Service,
 ): LatLng[] {
+  if (service.trackPath?.length)
+    return deduplicate(
+      resolveTrackPath(network, service).flatMap(
+        (segment) => segment.coordinates,
+      ),
+    );
   const segments = serviceSegments(network, service);
   if (segments.length)
     return deduplicate(segments.flatMap((segment) => segment.coordinates));
@@ -184,6 +465,11 @@ export function serviceCoordinates(
 }
 
 export function routeDistance(network: Network, service: Service): number {
+  if (service.trackPath?.length)
+    return resolveTrackPath(network, service).reduce(
+      (sum, segment) => sum + segment.distance,
+      0,
+    );
   return serviceSegments(network, service).reduce(
     (sum, segment) => sum + segment.distance,
     0,
@@ -208,14 +494,18 @@ export function getNetworkStats(network: Network) {
   let routeKm = 0,
     trackKm = 0;
   for (const service of network.services) {
-    const skipped = new Set(service.skippedStationIds);
-    for (const id of service.stationIds) {
-      if (skipped.has(id)) continue;
+    for (const [index, id] of service.stationIds.entries()) {
+      if (!serviceStopsAt(service, index) || stations.get(id)?.isWaypoint)
+        continue;
       const group = stationGroups.get(id) ?? `station:${id}`;
       if (!stationRoutes.has(group)) stationRoutes.set(group, new Set());
       stationRoutes.get(group)!.add(service.routeId);
       if (!groupMembers.has(group)) groupMembers.set(group, new Set());
       groupMembers.get(group)!.add(id);
+    }
+    if (network.tracks?.length) {
+      routeKm += routeDistance(network, service);
+      continue;
     }
     for (const segment of serviceSegments(network, service, stations)) {
       routeKm += segment.distance;
@@ -236,8 +526,14 @@ export function getNetworkStats(network: Network) {
     ([group, routes]) =>
       routes.size > 1 || (groupMembers.get(group)?.size ?? 0) > 1,
   ).length;
+  if (network.tracks?.length)
+    trackKm = network.tracks.reduce(
+      (sum, track) => sum + lineDistance(trackCoordinates(network, track)),
+      0,
+    );
   return {
-    stations: network.stations.length,
+    stations: network.stations.filter((station) => !station.isWaypoint).length,
+    waypoints: network.stations.filter((station) => station.isWaypoint).length,
     routes: network.routes.length,
     services: network.services.length,
     interchanges,
@@ -246,6 +542,9 @@ export function getNetworkStats(network: Network) {
     expressServices: network.services.filter(
       (service) => service.kind === "express" || service.kind === "limited",
     ).length,
+    junctions: network.junctions?.length ?? 0,
+    tracks: network.tracks?.length ?? 0,
+    passingLoops: network.passingLoops?.length ?? 0,
   };
 }
 
@@ -338,6 +637,73 @@ function uniqueIds<T extends { id: string }>(
   return ids;
 }
 
+function cloneJSONRecord(input: unknown): Record<string, unknown> {
+  object(input, "importMetadata.original");
+  let count = 0,
+    characters = 0;
+  const ancestors = new WeakSet<object>(),
+    maximumBytes = 20 * 1024 * 1024;
+  const copy = (value: unknown, depth: number): unknown => {
+    if (++count > 500_000 || depth > 64)
+      fail(
+        "importMetadata.original",
+        "original JSON exceeds the node/depth safety limit",
+      );
+    if (value === null || typeof value === "boolean") return value;
+    if (typeof value === "number") {
+      if (!Number.isFinite(value))
+        fail(
+          "importMetadata.original",
+          "original JSON contains a non-finite number",
+        );
+      return value;
+    }
+    if (typeof value === "string") {
+      characters += value.length;
+      if (characters > maximumBytes)
+        fail("importMetadata.original", "original JSON exceeds 20 MB");
+      return value;
+    }
+    if (!value || typeof value !== "object")
+      fail(
+        "importMetadata.original",
+        "original data must contain JSON-safe values only",
+      );
+    if (ancestors.has(value))
+      fail("importMetadata.original", "original JSON contains a cycle");
+    if (
+      !Array.isArray(value) &&
+      Object.getPrototypeOf(value) !== Object.prototype &&
+      Object.getPrototypeOf(value) !== null
+    )
+      fail(
+        "importMetadata.original",
+        "original data must contain plain JSON objects",
+      );
+    ancestors.add(value);
+    let result: unknown;
+    if (Array.isArray(value))
+      result = value.map((item) => copy(item, depth + 1));
+    else
+      result = Object.fromEntries(
+        Object.entries(value).map(([key, item]) => {
+          characters += key.length;
+          if (characters > maximumBytes)
+            fail("importMetadata.original", "original JSON exceeds 20 MB");
+          return [key, copy(item, depth + 1)];
+        }),
+      );
+    ancestors.delete(value);
+    return result;
+  };
+  const result = copy(input, 0) as Record<string, unknown>;
+  if (
+    new TextEncoder().encode(JSON.stringify(result)).byteLength > maximumBytes
+  )
+    fail("importMetadata.original", "original JSON exceeds 20 MB");
+  return result;
+}
+
 /** Validate and copy untrusted project files. Unknown fields are deliberately discarded. */
 export function validateNetwork(input: unknown): Network {
   const root = object(input, "Project");
@@ -358,6 +724,21 @@ export function validateNetwork(input: unknown): Network {
         ...(station.accessible === undefined
           ? {}
           : { accessible: bool(station.accessible, `${path}.accessible`) }),
+        ...(station.isWaypoint === undefined
+          ? {}
+          : { isWaypoint: bool(station.isWaypoint, `${path}.isWaypoint`) }),
+        ...(station.grade === undefined
+          ? {}
+          : {
+              grade: enumeration(station.grade, `${path}.grade`, [
+                "above",
+                "at",
+                "below",
+              ] as const),
+            }),
+        ...(station.info === undefined
+          ? {}
+          : { info: string(station.info, `${path}.info`, 20_000, true) }),
         ...(station.transferGroup === undefined
           ? {}
           : {
@@ -370,6 +751,20 @@ export function validateNetwork(input: unknown): Network {
     },
   );
   const stationIds = uniqueIds(stations, "stations");
+  const lineGroups: LineGroup[] = array(
+    root.lineGroups ?? [],
+    "lineGroups",
+    3000,
+  ).map((value, i) => {
+    const entry = object(value, `lineGroups[${i}]`),
+      path = `lineGroups[${i}]`;
+    return {
+      id: identifier(entry.id, `${path}.id`),
+      name: string(entry.name, `${path}.name`),
+      visible: bool(entry.visible, `${path}.visible`),
+    };
+  });
+  const groupIds = uniqueIds(lineGroups, "lineGroups");
   const routes: Route[] = array(root.routes, "routes", 3_000).map(
     (value, i) => {
       const route = object(value, `routes[${i}]`),
@@ -377,6 +772,12 @@ export function validateNetwork(input: unknown): Network {
       const color = string(route.color, `${path}.color`, 7);
       if (!/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(color))
         fail(`${path}.color`, "expected a hexadecimal colour such as #2563eb");
+      const groupId =
+        route.groupId === undefined
+          ? undefined
+          : identifier(route.groupId, `${path}.groupId`);
+      if (groupId !== undefined && !groupIds.has(groupId))
+        fail(`${path}.groupId`, `unknown line group ${groupId}`);
       return {
         id: identifier(route.id, `${path}.id`),
         name: string(route.name, `${path}.name`),
@@ -389,14 +790,130 @@ export function validateNetwork(input: unknown): Network {
           "monorail",
           "maglev",
           "light-metro",
+          "bus",
+          "brt",
+          "ferry",
+          "gondola",
+          "air",
+          "high-speed-rail",
         ]),
         visible: bool(route.visible, `${path}.visible`),
+        ...(groupId === undefined ? {} : { groupId }),
+        ...(route.icon === undefined
+          ? {}
+          : {
+              icon: enumeration(route.icon, `${path}.icon`, [
+                "circle",
+                "square",
+                "diamond",
+                "triangle",
+                "hexagon",
+                "pentagon",
+                "heart",
+                "plus",
+                "star",
+              ] as const),
+            }),
+        ...(route.pattern === undefined
+          ? {}
+          : {
+              pattern: enumeration(route.pattern, `${path}.pattern`, [
+                "solid",
+                "dashed",
+                "dotted",
+                "dash-dot",
+              ] as const),
+            }),
       };
     },
   );
   const routeIds = uniqueIds(routes, "routes");
   let totalReferences = 0,
     totalCoordinates = 0;
+  const parseGeometry = (
+    points: unknown,
+    path: string,
+    max: number,
+  ): LatLng[] => {
+    const entries = array(points, path, max);
+    totalCoordinates += entries.length;
+    if (totalCoordinates > 2_000_000)
+      fail(path, "project exceeds 2,000,000 geometry coordinates");
+    return entries.map((point, index) =>
+      coordinate(point, `${path}[${index}]`),
+    );
+  };
+  const junctions: Junction[] = array(
+    root.junctions ?? [],
+    "junctions",
+    50_000,
+  ).map((value, i) => {
+    const entry = object(value, `junctions[${i}]`),
+      path = `junctions[${i}]`;
+    const id = identifier(entry.id, `${path}.id`);
+    if (stationIds.has(id))
+      fail(`${path}.id`, "junction and station IDs must be distinct");
+    return {
+      id,
+      name: string(entry.name, `${path}.name`),
+      lat: number(entry.lat, `${path}.lat`, -90, 90),
+      lng: number(entry.lng, `${path}.lng`, -180, 180),
+    };
+  });
+  const junctionIds = uniqueIds(junctions, "junctions"),
+    nodeIds = new Set([...stationIds, ...junctionIds]);
+  const tracks: Track[] = array(root.tracks ?? [], "tracks", 100_000).map(
+    (value, i) => {
+      const entry = object(value, `tracks[${i}]`),
+        path = `tracks[${i}]`;
+      const fromId = identifier(entry.fromId, `${path}.fromId`),
+        toId = identifier(entry.toId, `${path}.toId`);
+      if (!nodeIds.has(fromId) || !nodeIds.has(toId))
+        fail(path, "track references an unknown endpoint");
+      const geometry = parseGeometry(
+        entry.geometry ?? [],
+        `${path}.geometry`,
+        200_000,
+      );
+      if (geometry.length === 1)
+        fail(
+          `${path}.geometry`,
+          "use an empty straight segment or a full polyline with at least two coordinates",
+        );
+      return {
+        id: identifier(entry.id, `${path}.id`),
+        ...(entry.name === undefined
+          ? {}
+          : { name: string(entry.name, `${path}.name`, 300, true) }),
+        fromId,
+        toId,
+        geometry,
+        kind: enumeration(entry.kind, `${path}.kind`, [
+          "main",
+          "passing",
+          "siding",
+          "connector",
+        ]),
+        direction: enumeration(entry.direction, `${path}.direction`, [
+          "both",
+          "forward",
+        ]),
+        ...(entry.speedLimit === undefined
+          ? {}
+          : {
+              speedLimit: number(
+                entry.speedLimit,
+                `${path}.speedLimit`,
+                1,
+                1500,
+              ),
+            }),
+      };
+    },
+  );
+  uniqueIds(tracks, "tracks");
+  const trackMap = new Map(tracks.map((track) => [track.id, track]));
+  let totalTrackReferences = 0;
   const services: Service[] = array(root.services, "services", 10_000).map(
     (value, i) => {
       const service = object(value, `services[${i}]`),
@@ -434,6 +951,45 @@ export function validateNetwork(input: unknown): Network {
         ),
       ];
       const loop = bool(service.loop, `${path}.loop`);
+      const stopPattern =
+        service.stopPattern === undefined
+          ? undefined
+          : array(service.stopPattern, `${path}.stopPattern`, 20_000).map(
+              (value, j) => bool(value, `${path}.stopPattern[${j}]`),
+            );
+      if (stopPattern && stopPattern.length !== ids.length)
+        fail(
+          `${path}.stopPattern`,
+          "must contain one boolean for each station occurrence",
+        );
+      const trackPath: TrackTraversal[] | undefined =
+        service.trackPath === undefined
+          ? undefined
+          : array(service.trackPath, `${path}.trackPath`, 100_000).map(
+              (value, j) => {
+                const item = object(value, `${path}.trackPath[${j}]`);
+                const trackId = identifier(
+                  item.trackId,
+                  `${path}.trackPath[${j}].trackId`,
+                );
+                if (!trackMap.has(trackId))
+                  fail(`${path}.trackPath[${j}]`, `unknown track ${trackId}`);
+                return {
+                  trackId,
+                  ...(item.reverse === undefined
+                    ? {}
+                    : {
+                        reverse: bool(
+                          item.reverse,
+                          `${path}.trackPath[${j}].reverse`,
+                        ),
+                      }),
+                };
+              },
+            );
+      totalTrackReferences += trackPath?.length ?? 0;
+      if (totalTrackReferences > 1_000_000)
+        fail("services", "project exceeds 1,000,000 track traversals");
       const segmentKeys = new Set<string>();
       const addKeys = (a: string, b: string) => {
         segmentKeys.add(`${a}:${b}`);
@@ -451,13 +1007,7 @@ export function validateNetwork(input: unknown): Network {
         pointPath: string,
         max: number,
       ) => {
-        const entries = array(points, pointPath, max);
-        totalCoordinates += entries.length;
-        if (totalCoordinates > 1_000_000)
-          fail("services", "project exceeds 1,000,000 geometry coordinates");
-        return entries.map((point, j) =>
-          coordinate(point, `${pointPath}[${j}]`),
-        );
+        return parseGeometry(points, pointPath, max);
       };
       const waypoints = Object.fromEntries(
         waypointEntries.map(([key, points]) => {
@@ -490,6 +1040,8 @@ export function validateNetwork(input: unknown): Network {
         headway: number(service.headway, `${path}.headway`, 0.25, 1440),
         speed: number(service.speed, `${path}.speed`, 1, 700),
         dwell: number(service.dwell, `${path}.dwell`, 0, 1800),
+        ...(stopPattern === undefined ? {} : { stopPattern }),
+        ...(trackPath === undefined ? {} : { trackPath }),
         ...(service.shape === undefined
           ? {}
           : {
@@ -499,6 +1051,130 @@ export function validateNetwork(input: unknown): Network {
     },
   );
   uniqueIds(services, "services");
+  let expandedPathCoordinates = 0;
+  for (const [index, service] of services.entries()) {
+    if (service.trackPath === undefined) continue;
+    if (!service.trackPath.length) {
+      if (service.stationIds.length > 1)
+        fail(
+          `services[${index}].trackPath`,
+          "an empty physical path is allowed only for a zero/one-station draft",
+        );
+      continue;
+    }
+    const path: string[] = [];
+    let serviceCoordinates = 0;
+    for (const traversal of service.trackPath) {
+      const track = trackMap.get(traversal.trackId)!;
+      serviceCoordinates += Math.max(2, track.geometry.length);
+      expandedPathCoordinates += Math.max(2, track.geometry.length);
+      if (serviceCoordinates > 1_000_000 || expandedPathCoordinates > 6_000_000)
+        fail(
+          `services[${index}].trackPath`,
+          "expanded physical path geometry exceeds browser limits; simplify tracks or split the project",
+        );
+      if (traversal.reverse && track.direction === "forward")
+        fail(
+          `services[${index}].trackPath`,
+          `track ${track.id} cannot be traversed backwards`,
+        );
+      if (service.direction === "both" && track.direction === "forward")
+        fail(
+          `services[${index}].direction`,
+          `a bidirectional service cannot use one-way track ${track.id}`,
+        );
+      const from = traversal.reverse ? track.toId : track.fromId,
+        to = traversal.reverse ? track.fromId : track.toId;
+      if (path.length && path.at(-1) !== from)
+        fail(
+          `services[${index}].trackPath`,
+          `disconnected tracks before ${track.id}`,
+        );
+      if (!path.length) path.push(from);
+      path.push(to);
+    }
+    if (service.loop && path[0] !== path.at(-1))
+      fail(
+        `services[${index}].trackPath`,
+        "a looping service must have a physically closed track path",
+      );
+    try {
+      matchTrackOccurrences(service, path, true);
+    } catch (error) {
+      fail(
+        `services[${index}].trackPath`,
+        error instanceof Error ? error.message : "invalid station order",
+      );
+    }
+  }
+  const passingLoops: PassingLoop[] = array(
+    root.passingLoops ?? [],
+    "passingLoops",
+    20_000,
+  ).map((value, i) => {
+    const entry = object(value, `passingLoops[${i}]`),
+      path = `passingLoops[${i}]`;
+    const stationId = identifier(entry.stationId, `${path}.stationId`),
+      entryId = identifier(entry.entryId, `${path}.entryId`),
+      exitId = identifier(entry.exitId, `${path}.exitId`);
+    if (
+      !stationIds.has(stationId) ||
+      !nodeIds.has(entryId) ||
+      !nodeIds.has(exitId) ||
+      entryId === exitId ||
+      stationId === entryId ||
+      stationId === exitId
+    )
+      fail(
+        path,
+        "passing loop needs a station and two distinct valid approach endpoints",
+      );
+    const parseLane = (
+      raw: unknown,
+      lane: string,
+    ): { ids: string[]; nodes: string[] } => {
+      const ids = array(raw, `${path}.${lane}`, 50_000).map((id, j) =>
+        identifier(id, `${path}.${lane}[${j}]`),
+      );
+      if (!ids.length)
+        fail(`${path}.${lane}`, "a lane must contain at least one track");
+      const nodes = [entryId];
+      for (const id of ids) {
+        const track = trackMap.get(id);
+        if (!track) fail(`${path}.${lane}`, `unknown track ${id}`);
+        if (track.fromId === nodes.at(-1)) nodes.push(track.toId);
+        else if (track.toId === nodes.at(-1) && track.direction === "both")
+          nodes.push(track.fromId);
+        else
+          fail(
+            `${path}.${lane}`,
+            "lane tracks must form a connected, permitted path from entry to exit",
+          );
+      }
+      if (nodes.at(-1) !== exitId)
+        fail(`${path}.${lane}`, "lane does not reach its exit");
+      return { ids, nodes };
+    };
+    const main = parseLane(entry.mainTrackIds, "mainTrackIds"),
+      bypass = parseLane(entry.bypassTrackIds, "bypassTrackIds");
+    if (!main.nodes.includes(stationId) || bypass.nodes.includes(stationId))
+      fail(
+        path,
+        "main lane must serve the station; bypass lane must avoid its platform",
+      );
+    if (main.ids.some((id) => bypass.ids.includes(id)))
+      fail(path, "main and bypass lanes must use distinct tracks");
+    return {
+      id: identifier(entry.id, `${path}.id`),
+      name: string(entry.name, `${path}.name`),
+      stationId,
+      entryId,
+      exitId,
+      mainTrackIds: main.ids,
+      bypassTrackIds: bypass.ids,
+    };
+  });
+  uniqueIds(passingLoops, "passingLoops");
   const sources: Source[] = array(root.sources ?? [], "sources", 500).map(
     (value, i) => {
       const source = object(value, `sources[${i}]`),
@@ -529,6 +1205,29 @@ export function validateNetwork(input: unknown): Network {
   const updatedAt = string(root.updatedAt, "updatedAt", 80);
   if (!Number.isFinite(Date.parse(updatedAt)))
     fail("updatedAt", "expected a valid date");
+  let importMetadata: ImportMetadata | undefined;
+  if (root.importMetadata !== undefined) {
+    const metadata = object(root.importMetadata, "importMetadata");
+    const importedAt = string(
+      metadata.importedAt,
+      "importMetadata.importedAt",
+      80,
+    );
+    if (!Number.isFinite(Date.parse(importedAt)))
+      fail("importMetadata.importedAt", "expected a valid date");
+    importMetadata = {
+      format: string(metadata.format, "importMetadata.format", 80),
+      importedAt,
+      lossReport: array(
+        metadata.lossReport,
+        "importMetadata.lossReport",
+        1000,
+      ).map((message, i) =>
+        string(message, `importMetadata.lossReport[${i}]`, 2000, true),
+      ),
+      original: cloneJSONRecord(metadata.original),
+    };
+  }
   return {
     version: 1,
     id: identifier(root.id, "id"),
@@ -550,6 +1249,11 @@ export function validateNetwork(input: unknown): Network {
     center: coordinate(root.center, "center"),
     zoom: number(root.zoom, "zoom", 0, 22),
     updatedAt,
+    ...(root.junctions === undefined ? {} : { junctions }),
+    ...(root.tracks === undefined ? {} : { tracks }),
+    ...(root.passingLoops === undefined ? {} : { passingLoops }),
+    ...(importMetadata === undefined ? {} : { importMetadata }),
+    ...(root.lineGroups === undefined ? {} : { lineGroups }),
   };
 }
 
@@ -575,6 +1279,7 @@ interface RideNode {
   phase: "arrive" | "depart";
   next?: number;
   travel?: number;
+  dwellOverride?: number;
 }
 interface QueueEntry {
   node: number;
@@ -640,6 +1345,8 @@ export function findJourney(
     network.stations.map((station) => [station.id, station]),
   );
   if (!stations.has(fromId) || !stations.has(toId)) return null;
+  if (stations.get(fromId)?.isWaypoint || stations.get(toId)?.isWaypoint)
+    return null;
   if (fromId === toId) return { legs: [], minutes: 0, transfers: 0 };
   const group = (id: string) =>
     stations.get(id)?.transferGroup
@@ -647,12 +1354,10 @@ export function findJourney(
       : `station:${id}`;
   const fromGroup = group(fromId),
     toGroup = group(toId);
-  if (fromGroup === toGroup) return { legs: [], minutes: 3, transfers: 0 };
   const nodes: RideNode[] = [];
   const platforms = new Map<string, number[]>();
   for (const service of network.services) {
     if (service.stationIds.length < 2) continue;
-    const skipped = new Set(service.skippedStationIds);
     const segments = serviceSegments(network, service, stations);
     for (const direction of (service.direction === "both" ? [1, -1] : [1]) as (
       | 1
@@ -662,7 +1367,8 @@ export function findJourney(
         arrivalNodes: number[] = [];
       for (let i = 0; i < service.stationIds.length; i++) {
         const stationId = service.stationIds[i];
-        const stops = !skipped.has(stationId);
+        const stops =
+          serviceStopsAt(service, i) && !stations.get(stationId)?.isWaypoint;
         arrivalNodes.push(
           nodes.push({
             service,
@@ -683,7 +1389,7 @@ export function findJourney(
             phase: "depart",
           }) - 1;
         departureNodes.push(departure);
-        if (!skipped.has(stationId) && stations.has(stationId)) {
+        if (stops && stations.has(stationId)) {
           const key = group(stationId);
           if (!platforms.has(key)) platforms.set(key, []);
           platforms.get(key)!.push(departure);
@@ -695,14 +1401,29 @@ export function findJourney(
         const fromIndex = direction === 1 ? segment.fromIndex : segment.toIndex;
         const toIndex = direction === 1 ? segment.toIndex : segment.fromIndex;
         nodes[departureNodes[fromIndex]].next = arrivalNodes[toIndex];
-        nodes[departureNodes[fromIndex]].travel =
-          (segment.distance / service.speed) * 60;
+        nodes[departureNodes[fromIndex]].travel = segment.travelMinutes;
       }
       // An explicitly repeated loop terminus is the same occurrence boundary.
       if (service.loop && service.stationIds[0] === service.stationIds.at(-1)) {
         const last = service.stationIds.length - 1;
-        if (direction === 1) nodes[arrivalNodes[last]].next = departureNodes[0];
-        else nodes[arrivalNodes[0]].next = departureNodes[last];
+        const seamStops =
+          (serviceStopsAt(service, 0) || serviceStopsAt(service, last)) &&
+          !stations.get(service.stationIds[0])?.isWaypoint;
+        const firstArrival =
+          direction === 1 ? arrivalNodes[last] : arrivalNodes[0];
+        const nextArrival =
+          direction === 1 ? arrivalNodes[0] : arrivalNodes[last];
+        const nextDeparture =
+          direction === 1 ? departureNodes[0] : departureNodes[last];
+        nodes[firstArrival].next = nextArrival;
+        nodes[firstArrival].dwellOverride = 0;
+        nodes[nextArrival].dwellOverride = seamStops ? service.dwell / 60 : 0;
+        if (seamStops) {
+          const key = group(service.stationIds[0]);
+          if (!platforms.has(key)) platforms.set(key, []);
+          if (!platforms.get(key)!.includes(nextDeparture))
+            platforms.get(key)!.push(nextDeparture);
+        }
       }
     }
   }
@@ -733,9 +1454,9 @@ export function findJourney(
       (nodes[node].stationId === fromId ? 0 : 3);
     relax(node, minutes, 0, { previous: -1, action: "board", minutes });
   }
-  let bestNode = -1,
-    bestMinutes = Infinity,
-    bestTransfers = Infinity,
+  let bestNode = fromGroup === toGroup ? -2 : -1,
+    bestMinutes = fromGroup === toGroup ? 3 : Infinity,
+    bestTransfers = fromGroup === toGroup ? 0 : Infinity,
     finalWalk = 0;
   let current: QueueEntry | undefined;
   while ((current = queue.pop())) {
@@ -774,7 +1495,8 @@ export function findJourney(
       }
     }
     if (node.next !== undefined) {
-      const minutes = stops ? node.service.dwell / 60 : 0;
+      const minutes =
+        node.dwellOverride ?? (stops ? node.service.dwell / 60 : 0);
       relax(node.next, current.minutes + minutes, current.transfers, {
         previous: index,
         action: "dwell",
@@ -794,6 +1516,7 @@ export function findJourney(
     }
   }
   if (bestNode === -1) return null;
+  if (bestNode === -2) return { legs: [], minutes: 3, transfers: 0 };
   const steps: { node: number; step: Step }[] = [];
   let cursor = bestNode;
   while (cursor !== -1) {

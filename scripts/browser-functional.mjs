@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { chromium, expect } from "@playwright/test";
 import { strToU8, zipSync } from "fflate";
-import { validateNetwork } from "../src/engine.ts";
+import { serviceStopsAt, validateNetwork } from "../src/engine.ts";
 
 const BASE_URL = process.env.BASE_URL || "http://127.0.0.1:5173";
 const output = process.env.QA_OUTPUT_DIR
@@ -254,18 +254,17 @@ try {
       express.stationIds,
       n.services.find((s) => s.id === mainId).stationIds,
     );
-    assert.equal(express.skippedStationIds.length, 2);
+    assert.equal(express.stationIds.filter((_, i) => !serviceStopsAt(express, i)).length, 2);
     await page
       .getByRole("button", { name: "Make stop at Station 2", exact: true })
       .click();
     n = await until(
       (n) =>
-        n.services.find((s) => s.id === expressId).skippedStationIds.length ===
-        1,
+        n.services.find((s) => s.id === expressId).stationIds.filter((_, i) => !serviceStopsAt(n.services.find(s => s.id === expressId), i)).length === 1,
       "stop toggle updates express boarding",
     );
     assert.equal(
-      n.services.find((s) => s.id === expressId).skippedStationIds[0],
+      n.services.find((s) => s.id === expressId).stationIds.filter((_, i) => !serviceStopsAt(n.services.find(s => s.id === expressId), i))[0],
       n.stations[2].id,
     );
   });

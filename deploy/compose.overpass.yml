@@ -1,0 +1,25 @@
+# OPTIONAL, separate deployment. Starting this initializes a large planet database.
+# Not started by compose.yml, the app, or npm start.
+name: metroweave-query
+services:
+  overpass:
+    image: "${OVERPASS_IMAGE:-wiktorn/overpass-api:latest}"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${OVERPASS_PORT:-8081}:80"
+    environment:
+      OVERPASS_MODE: clone
+      OVERPASS_META: "no"
+      OVERPASS_CLONE_SOURCE: "https://dev.overpass-api.de/api_drolbr/"
+      OVERPASS_DIFF_URL: "https://planet.openstreetmap.org/replication/minute/"
+      OVERPASS_STOP_AFTER_INIT: "false"
+      OVERPASS_USE_AREAS: "false"
+      OVERPASS_RATE_LIMIT: "2"
+      OVERPASS_MAX_TIMEOUT: "180"
+      OVERPASS_MAX_SIZE: "4M"
+    volumes:
+      - type: bind
+        source: "${OVERPASS_DB_DIR:?Set OVERPASS_DB_DIR to a dedicated database disk}"
+        target: /db
+    security_opt:
+      - no-new-privileges:true

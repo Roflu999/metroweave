@@ -5,9 +5,23 @@ import {
   serviceCoordinates,
   serviceSegmentGeometries,
   haversine,
+  serviceStopsAt,
+  isServiceVisible,
 } from "./engine";
+import {
+  createBasemapLayer,
+  OFFLINE_BASEMAP,
+  type BasemapSource,
+} from "./basemaps";
 import { createSVG } from "./svg";
-export type MapTool = "select" | "station" | "draw" | "bend" | "erase";
+export type MapTool =
+  | "select"
+  | "station"
+  | "draw"
+  | "bend"
+  | "erase"
+  | "junction"
+  | "track";
 export interface MapAPI {
   fit: () => void;
   zoom: (n: number) => void;
@@ -21,6 +35,11 @@ type Props = {
   tool: MapTool;
   labels: boolean;
   basemap: boolean;
+  mapSource: BasemapSource;
+  offline: boolean;
+  showInfrastructure: boolean;
+  selectedTrackId: string | null;
+  selectedJunctionId: string | null;
   schematic: boolean;
   playing: boolean;
   simulationSpeed: number;
@@ -30,6 +49,11 @@ type Props = {
   onClick: (p: LatLng) => void;
   onBend: (from: string, to: string, p: LatLng) => void;
   onWaypointMove: (key: string, index: number, p: LatLng) => void;
+  onTrack: (id: string) => void;
+  onJunction: (id: string) => void;
+  onTrackBend: (id: string, p: LatLng) => void;
+  onTrackPointMove: (id: string, index: number, p: LatLng) => void;
+  onMapError: (message: string) => void;
   apiRef: React.RefObject<MapAPI | null>;
 };
 const escape = (s: string) =>
@@ -44,17 +68,24 @@ export default function MapCanvas(p: Props) {
   const host = useRef<HTMLDivElement>(null),
     map = useRef<L.Map | null>(null),
     layer = useRef<L.LayerGroup | null>(null),
-    tiles = useRef<L.TileLayer | null>(null),
+    tiles = useRef<L.Layer | null>(null),
     latest = useRef(p),
     elapsed = useRef(0);
   latest.current = p;
   const fit = () => {
     const n = latest.current.network;
-    if (n.stations.length)
-      map.current?.fitBounds(
-        L.latLngBounds(n.stations.map((s) => [s.lat, s.lng])),
-        { padding: [65, 65], maxZoom: 13, animate: false },
-      );
+    const points: LatLng[] = n.stations.map((s) => [s.lat, s.lng]);
+    if (latest.current.showInfrastructure) {
+      points.push(...(n.junctions || []).map((j) => [j.lat, j.lng] as LatLng));
+      for (const track of n.tracks || [])
+        for (const point of track.geometry) points.push(point);
+    }
+    if (points.length)
+      map.current?.fitBounds(L.latLngBounds(points), {
+        padding: [65, 65],
+        maxZoom: 13,
+        animate: false,
+      });
     else map.current?.setView(n.center, n.zoom);
   };
   useEffect(() => {
@@ -69,18 +100,9 @@ export default function MapCanvas(p: Props) {
       doubleClickZoom: false,
     }).setView(p.network.center, p.network.zoom);
     map.current = m;
-    tiles.current = L.tileLayer(
-      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-        className: "muted-tiles",
-      },
-    );
     layer.current = L.layerGroup().addTo(m);
     m.on("click", (e: L.LeafletMouseEvent) =>
-      latest.current.onClick([e.latlng.lat, e.latlng.lng]),
+      latest.current.onClick([e.latlng.wrap().lat, e.latlng.wrap().lng]),
     );
     const ro = new ResizeObserver(() => m.invalidateSize());
     ro.observe(host.current);
@@ -102,12 +124,86 @@ export default function MapCanvas(p: Props) {
     elapsed.current = 0;
   }, [p.focusKey]);
   useEffect(() => {
-    const m = map.current,
-      t = tiles.current;
-    if (!m || !t) return;
-    if (p.basemap && !p.schematic) t.addTo(m);
-    else if (m.hasLayer(t)) m.removeLayer(t);
-  }, [p.basemap, p.schematic]);
+    const m = map.current;
+    if (!m) return;
+    let cancelled = false,
+      fallbackTimer: ReturnType<typeof setTimeout> | undefined,
+      failed = 0,
+      loaded = 0,
+      usingFallback = false;
+    if (tiles.current) {
+      tiles.current.remove();
+      tiles.current = null;
+    }
+    if (!p.basemap || p.schematic) return;
+    const source =
+      p.offline && p.mapSource.type === "online"
+        ? OFFLINE_BASEMAP
+        : p.mapSource;
+    void createBasemapLayer(source)
+      .then((layer) => {
+        if (cancelled) {
+          layer.remove();
+          return;
+        }
+        tiles.current = layer;
+        if (source.type === "online") {
+          layer.on("loading", () => {
+            failed = 0;
+            loaded = 0;
+          });
+          layer.on("tileload", () => {
+            loaded++;
+          });
+          layer.on("tileerror", () => {
+            failed++;
+            if (fallbackTimer) clearTimeout(fallbackTimer);
+            fallbackTimer = setTimeout(() => {
+              if (cancelled || usingFallback || failed < 2 || loaded) return;
+              usingFallback = true;
+              void createBasemapLayer(OFFLINE_BASEMAP)
+                .then((overview) => {
+                  if (cancelled) {
+                    overview.remove();
+                    return;
+                  }
+                  layer.remove();
+                  tiles.current = overview;
+                  overview.addTo(m);
+                  latest.current.onMapError(
+                    "Online tiles are unavailable. Using the offline world overview; choose a local map archive for street detail.",
+                  );
+                })
+                .catch(() => {});
+            }, 1200);
+          });
+        }
+        layer.addTo(m);
+      })
+      .catch(async (e) => {
+        if (cancelled) return;
+        latest.current.onMapError((e as Error).message);
+        if (source.id !== OFFLINE_BASEMAP.id) {
+          try {
+            const layer = await createBasemapLayer(OFFLINE_BASEMAP);
+            if (!cancelled) {
+              tiles.current = layer;
+              layer.addTo(m);
+            }
+          } catch {
+            /* Editing remains available without a basemap. */
+          }
+        }
+      });
+    return () => {
+      cancelled = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (tiles.current) {
+        tiles.current.remove();
+        tiles.current = null;
+      }
+    };
+  }, [p.basemap, p.schematic, p.mapSource, p.offline]);
   useEffect(() => {
     const m = map.current,
       g = layer.current;
@@ -117,7 +213,7 @@ export default function MapCanvas(p: Props) {
       active = n.services.find((s) => s.id === p.selectedService),
       selectedRoute = n.routes.find((r) => r.id === active?.routeId);
     const all = n.services
-      .filter((s) => n.routes.find((r) => r.id === s.routeId)?.visible)
+      .filter((s) => isServiceVisible(n, s))
       .sort(
         (a, b) =>
           Number(a.id === p.selectedService) -
@@ -161,7 +257,16 @@ export default function MapCanvas(p: Props) {
         color: route.color,
         weight: selected ? 6 : 4.5,
         opacity: !selectedRoute || route.id === selectedRoute.id ? 1 : 0.62,
-        dashArray: s.kind === "express" ? "12 5" : undefined,
+        dashArray:
+          s.kind === "express"
+            ? "12 5"
+            : route.pattern === "dashed"
+              ? "9 5"
+              : route.pattern === "dotted"
+                ? "2 7"
+                : route.pattern === "dash-dot"
+                  ? "10 4 2 4"
+                  : undefined,
         lineJoin: "round",
         lineCap: "round",
         bubblingMouseEvents: false,
@@ -185,16 +290,118 @@ export default function MapCanvas(p: Props) {
             }
           }
           if (key[0])
-            latest.current.onBend(...key, [e.latlng.lat, e.latlng.lng]);
+            latest.current.onBend(...key, [
+              e.latlng.wrap().lat,
+              e.latlng.wrap().lng,
+            ]);
         }
       });
+    }
+    if (p.showInfrastructure) {
+      for (const track of n.tracks || []) {
+        const from =
+            n.stations.find((v) => v.id === track.fromId) ||
+            n.junctions?.find((v) => v.id === track.fromId),
+          to =
+            n.stations.find((v) => v.id === track.toId) ||
+            n.junctions?.find((v) => v.id === track.toId);
+        if (!from || !to) continue;
+        const coords: LatLng[] = [
+            [from.lat, from.lng],
+            ...track.geometry.slice(1, -1),
+            [to.lat, to.lng],
+          ],
+          selected = track.id === p.selectedTrackId;
+        const line = L.polyline(coords, {
+          color: selected
+            ? "#204f45"
+            : track.kind === "passing"
+              ? "#188e9c"
+              : "#74867a",
+          weight: selected ? 7 : 2.5,
+          opacity: selected ? 1 : 0.75,
+          dashArray:
+            track.kind === "passing"
+              ? "5 4"
+              : track.kind === "siding"
+                ? "2 4"
+                : undefined,
+          bubblingMouseEvents: false,
+        }).addTo(g);
+        line.getElement()?.setAttribute("data-track-id", track.id);
+        line.bindTooltip(escape(track.name || `${track.kind} track`), {
+          sticky: true,
+        });
+        line.on("click", (event: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(event.originalEvent);
+          if (
+            latest.current.tool === "bend" &&
+            latest.current.selectedTrackId === track.id
+          )
+            latest.current.onTrackBend(track.id, [
+              event.latlng.wrap().lat,
+              event.latlng.wrap().lng,
+            ]);
+          else latest.current.onTrack(track.id);
+        });
+        if (selected && p.tool === "bend")
+          track.geometry.slice(1, -1).forEach((point, i) => {
+            const marker = L.marker(point, {
+              icon: L.divIcon({
+                className: "bend-marker track-vertex",
+                iconSize: [11, 11],
+                iconAnchor: [5, 5],
+              }),
+              draggable: true,
+              bubblingMouseEvents: false,
+            }).addTo(g);
+            marker.on("dragend", () => {
+              const at = marker.getLatLng().wrap();
+              latest.current.onTrackPointMove(track.id, i + 1, [
+                at.lat,
+                at.lng,
+              ]);
+            });
+          });
+      }
+      for (const junction of n.junctions || []) {
+        const selected = junction.id === p.selectedJunctionId;
+        const marker = L.marker([junction.lat, junction.lng], {
+          icon: L.divIcon({
+            className: `junction-marker-container ${selected ? "selected" : ""}`,
+            html: '<span class="junction-dot"></span>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          }),
+          title: junction.name,
+          draggable: p.tool === "select",
+          bubblingMouseEvents: false,
+          zIndexOffset: 1800,
+        }).addTo(g);
+        marker.getElement()?.setAttribute("data-junction-id", junction.id);
+        marker.on("click", (e) => {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          latest.current.onJunction(junction.id);
+        });
+        marker.on("dragend", () => {
+          const at = marker.getLatLng().wrap();
+          latest.current.onMove(junction.id, [at.lat, at.lng]);
+        });
+        if (selected)
+          marker.bindTooltip(escape(junction.name), {
+            permanent: true,
+            direction: "right",
+            offset: [8, 0],
+            className: "station-label active-label",
+          });
+      }
     }
     const memberships = new Map<string, Set<string>>();
     n.services.forEach((s) =>
       s.stationIds
-        .filter((id) => !s.skippedStationIds.includes(id))
+        .filter((_id, index) => serviceStopsAt(s, index))
         .forEach((id) => {
-          if (!n.routes.find((r) => r.id === s.routeId)?.visible) return;
+          if (!isServiceVisible(n, s)) return;
           if (!memberships.has(id)) memberships.set(id, new Set());
           memberships.get(id)!.add(s.routeId);
         }),
@@ -208,13 +415,21 @@ export default function MapCanvas(p: Props) {
       const member = memberships.get(station.id),
         sel = station.id === p.selectedStation,
         inActive = active?.stationIds.includes(station.id),
-        skipped = active?.skippedStationIds.includes(station.id);
+        skipped =
+          station.isWaypoint ||
+          Boolean(
+            active?.stationIds.includes(station.id) &&
+              !active?.stationIds.some(
+                (id, index) =>
+                  id === station.id && serviceStopsAt(active, index),
+              ),
+          );
       const color = sel
         ? "#1b463c"
         : (inActive ? selectedRoute?.color : "#56655f") || "#56655f";
       const icon = L.divIcon({
         className: "station-marker-container",
-        html: `<span class="station-dot ${sel ? "selected " : ""}${skipped ? "skipped " : ""}${(member?.size || 0) > 1 ? "interchange" : ""}" style="--station-color:${/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color) ? color : "#56655f"}"></span>`,
+        html: `<span class="station-dot ${station.isWaypoint ? "waypoint " : ""}${sel ? "selected " : ""}${skipped ? "skipped " : ""}${(member?.size || 0) > 1 ? "interchange" : ""}" style="--station-color:${/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color) ? color : "#56655f"}"></span>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
@@ -231,10 +446,10 @@ export default function MapCanvas(p: Props) {
         latest.current.onStation(station.id);
       });
       marker.on("dragend", () => {
-        const pos = marker.getLatLng();
+        const pos = marker.getLatLng().wrap();
         latest.current.onMove(station.id, [pos.lat, pos.lng]);
       });
-      if (p.labels) {
+      if (p.labels && (!station.isWaypoint || sel || p.showInfrastructure)) {
         marker.bindTooltip(escape(station.name), {
           permanent: true,
           direction: "right",
@@ -268,7 +483,7 @@ export default function MapCanvas(p: Props) {
             bubblingMouseEvents: false,
           }).addTo(g);
           marker.on("dragend", () => {
-            const point = marker.getLatLng();
+            const point = marker.getLatLng().wrap();
             latest.current.onWaypointMove(key, i, [point.lat, point.lng]);
           });
         });
@@ -359,6 +574,9 @@ export default function MapCanvas(p: Props) {
     p.labels,
     p.tool,
     p.schematic,
+    p.showInfrastructure,
+    p.selectedTrackId,
+    p.selectedJunctionId,
   ]);
   useEffect(() => {
     const m = map.current;
@@ -373,7 +591,7 @@ export default function MapCanvas(p: Props) {
       }[] = [];
     for (const s of p.network.services) {
       const route = p.network.routes.find((r) => r.id === s.routeId);
-      if (!route?.visible) continue;
+      if (!route || !isServiceVisible(p.network, s)) continue;
       const coords = serviceCoordinates(p.network, s);
       if (coords.length < 2) continue;
       const dist = [0];

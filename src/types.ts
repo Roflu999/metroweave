@@ -7,13 +7,45 @@ export interface Station {
   code?: string;
   accessible?: boolean;
   transferGroup?: string;
+  isWaypoint?: boolean;
+  grade?: "above" | "at" | "below";
+  info?: string;
 }
 export interface Route {
   id: string;
   name: string;
   shortName: string;
   color: string;
-  mode: "metro" | "rail" | "tram" | "monorail" | "maglev" | "light-metro";
+  mode:
+    | "metro"
+    | "rail"
+    | "tram"
+    | "monorail"
+    | "maglev"
+    | "light-metro"
+    | "bus"
+    | "brt"
+    | "ferry"
+    | "gondola"
+    | "air"
+    | "high-speed-rail";
+  visible: boolean;
+  groupId?: string;
+  icon?:
+    | "circle"
+    | "square"
+    | "diamond"
+    | "triangle"
+    | "hexagon"
+    | "pentagon"
+    | "heart"
+    | "plus"
+    | "star";
+  pattern?: "solid" | "dashed" | "dotted" | "dash-dot";
+}
+export interface LineGroup {
+  id: string;
+  name: string;
   visible: boolean;
 }
 export interface Service {
@@ -30,6 +62,46 @@ export interface Service {
   speed: number;
   dwell: number;
   shape?: LatLng[];
+  /** Ordered physical track traversals. An omitted field uses legacy station geometry. */
+  trackPath?: TrackTraversal[];
+  /** Occurrence-specific stopping, overriding skippedStationIds when provided. */
+  stopPattern?: boolean[];
+}
+export interface Junction {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+export interface TrackTraversal {
+  trackId: string;
+  reverse?: boolean;
+}
+export interface Track {
+  id: string;
+  name?: string;
+  fromId: string;
+  toId: string;
+  /** Full polyline; endpoint coordinates are normalized to the referenced nodes. */
+  geometry: LatLng[];
+  kind: "main" | "passing" | "siding" | "connector";
+  direction: "both" | "forward";
+  speedLimit?: number;
+}
+export interface PassingLoop {
+  id: string;
+  name: string;
+  stationId: string;
+  entryId: string;
+  exitId: string;
+  mainTrackIds: string[];
+  bypassTrackIds: string[];
+}
+export interface ImportMetadata {
+  format: string;
+  importedAt: string;
+  lossReport: string[];
+  original: Record<string, unknown>;
 }
 export interface Source {
   title: string;
@@ -52,6 +124,11 @@ export interface Network {
   center: LatLng;
   zoom: number;
   updatedAt: string;
+  junctions?: Junction[];
+  tracks?: Track[];
+  passingLoops?: PassingLoop[];
+  importMetadata?: ImportMetadata;
+  lineGroups?: LineGroup[];
 }
 export interface CatalogEntry {
   id: string;

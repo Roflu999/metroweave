@@ -1,8 +1,15 @@
 node_modules/
+*.pmtiles
+*.osm.pbf
+*.osm.bz2
+deploy/maps/
+deploy/overpass-db/
+deploy/.env
 dist/
 playwright-report/
 test-results/
 *.log
 .env*
+!deploy/.env.example
 .local/
 *.tsbuildinfo

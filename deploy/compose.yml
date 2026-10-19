@@ -1,0 +1,45 @@
+name: metroweave
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${METROWEAVE_PORT:-5173}:5173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 5173
+      METROWEAVE_MAPS_DIR: /maps
+      METROWEAVE_MAPS_CORS: "${METROWEAVE_MAPS_CORS:-*}"
+    volumes:
+      - type: bind
+        source: "${METROWEAVE_MAPS_DIR:-./maps}"
+        target: /maps
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+  martin:
+    profiles: [tiles]
+    image: ghcr.io/maplibre/martin:1.16.1
+    restart: unless-stopped
+    command: [--config, /config/martin.yml]
+    ports:
+      - "127.0.0.1:${MARTIN_PORT:-3000}:3000"
+    volumes:
+      - type: bind
+        source: "${METROWEAVE_MAPS_DIR:-./maps}"
+        target: /maps
+        read_only: true
+      - type: bind
+        source: ./martin.yml
+        target: /config/martin.yml
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

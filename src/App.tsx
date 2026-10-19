@@ -48,8 +48,11 @@ import {
   ArrowDownToLine,
   Menu,
   Waypoints,
+  WifiOff,
+  Server,
+  HardDrive,
 } from "lucide-react";
-import { zlibSync, unzlibSync, strToU8, strFromU8 } from "fflate";
+import { zlibSync, unzlibSync, strToU8, strFromU8, zipSync } from "fflate";
 import type { Network, Service, Route, LatLng, CatalogEntry } from "./types";
 import { demoNetwork, emptyNetwork } from "./data";
 import {
@@ -58,13 +61,62 @@ import {
   getNetworkStats,
   findJourney,
   routeDistance,
+  serviceStopsAt,
 } from "./engine";
+import {
+  materializeInfrastructure,
+  branchFromLoop,
+  extendServiceTo,
+  setServiceLoop,
+} from "./infrastructure";
+import {
+  registerOffline,
+  getOfflineStatus,
+  type OfflineStatus,
+} from "./offline";
+import {
+  DEFAULT_BASEMAP,
+  OFFLINE_BASEMAP,
+  type BasemapSource,
+  listBasemapSources,
+  exportOfflineMaps,
+  importOfflineMaps,
+} from "./basemaps";
+import { readSavedWorkspace, writeSavedWorkspace } from "./persistence";
+import {
+  serialiseWorkspace,
+  parseWorkspace,
+  isWorkspaceBundle,
+  exportWorkspaceZIP,
+  classifyArchive,
+  type WorkspaceBundle,
+} from "./backup";
+import TrackInspector from "./TrackInspector";
+import {
+  addTrack,
+  moveNode,
+  insertTrackPoint,
+  setOccurrenceStop,
+  expressStopPattern,
+  reverseServicePath,
+} from "./trackEditing";
+import OfflinePanel from "./OfflinePanel";
+import {
+  RouteAppearance,
+  StationDetails,
+  LineGroups,
+  TRANSPORT_MODES,
+} from "./MapDetails";
 import { normalizeDraft, insertWaypoint, boundHistory } from "./editor";
 import {
   importGTFS,
   importGeoJSON,
   exportGeoJSON,
   importOSM,
+  importMetroDreamin,
+  isMetroDreamin,
+  exportNetworkCSV,
+  exportNetworkToMetroDreamin,
 } from "./importers";
 import MapCanvas, { type MapTool, type MapAPI } from "./MapCanvas";
 type ModalName =
@@ -77,6 +129,9 @@ type ModalName =
   | "project"
   | "new"
   | "sources"
+  | "offline"
+  | "branch"
+  | "rejoin"
   | null;
 const STORE = "metroweave.autosave.v1",
   LIBRARY = "metroweave.library.v1";
@@ -103,8 +158,12 @@ function initialNetwork() {
   return clone(demoNetwork);
 }
 const date = () => new Date().toISOString();
-function download(name: string, value: string, type = "application/json") {
-  const blob = new Blob([value], { type }),
+function download(
+  name: string,
+  value: string | Uint8Array,
+  type = "application/json",
+) {
+  const blob = new Blob([value as BlobPart], { type }),
     url = URL.createObjectURL(blob),
     a = document.createElement("a");
   a.href = url;
@@ -211,7 +270,25 @@ export default function App() {
     [selectedStation, setSelectedStation] = useState<string | null>(null),
     [tool, setTool] = useState<MapTool>("select"),
     [modal, setModal] = useState<ModalName>(null),
-    [tab, setTab] = useState<"service" | "journey" | "layers">("service");
+    [tab, setTab] = useState<"service" | "journey" | "layers" | "tracks">(
+      "service",
+    );
+  const [selectedTrack, setSelectedTrack] = useState<string | null>(null),
+    [selectedJunction, setSelectedJunction] = useState<string | null>(null),
+    [trackStart, setTrackStart] = useState<string | null>(null),
+    [showInfrastructure, setShowInfrastructure] = useState(false),
+    [offlineStatus, setOfflineStatus] =
+      useState<OfflineStatus>(getOfflineStatus),
+    [basemapSource, setBasemapSource] =
+      useState<BasemapSource>(DEFAULT_BASEMAP),
+    [hydrated, setHydrated] = useState(false),
+    [pasteImport, setPasteImport] = useState(""),
+    [groupName, setGroupName] = useState("");
+  const [overpassEndpoint, setOverpassEndpoint] = useState("");
+  const bootShared = useRef(location.hash.startsWith("#map=")),
+    historyRef = useRef(history),
+    bootHistory = useRef(history);
+  historyRef.current = history;
   const [labels, setLabels] = useState(true),
     [basemap, setBasemap] = useState(true),
     [schematic, setSchematic] = useState(false),
@@ -264,22 +341,50 @@ export default function App() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   };
-  const update = (fn: (draft: Network) => void) =>
-    setHistory((h) => {
-      const next = clone(h.present);
+  const update = (fn: (draft: Network) => void) => {
+    const h = historyRef.current;
+    const next = clone(h.present);
+    try {
       fn(next);
       normalizeDraft(next);
-      next.updatedAt = date();
-      return {
-        past: boundHistory([...h.past, h.present]),
-        present: next,
-        future: [],
-      };
-    });
+    } catch (e) {
+      announce((e as Error).message);
+      return false;
+    }
+    next.updatedAt = date();
+    const value = {
+      past: boundHistory([...h.past, h.present]),
+      present: next,
+      future: [],
+    };
+    historyRef.current = value;
+    setHistory(value);
+    return true;
+  };
   const patchService = (patch: Partial<Service>) => {
+    if (
+      service &&
+      patch.direction === "both" &&
+      service.trackPath?.some(
+        (v) =>
+          n.tracks?.find((t) => t.id === v.trackId)?.direction === "forward",
+      )
+    ) {
+      announce(
+        "This physical path uses one-way track. Change its track directions before running the service both ways.",
+      );
+      return;
+    }
     if (service)
       update((d) => {
-        Object.assign(d.services.find((s) => s.id === service.id)!, patch);
+        const s = d.services.find((s) => s.id === service.id)!;
+        if (patch.stationIds !== undefined) {
+          s.trackPath = undefined;
+          if (patch.stopPattern === undefined) s.stopPattern = undefined;
+        }
+        if (patch.loop !== undefined && s.loop !== patch.loop)
+          setServiceLoop(d, s.id, patch.loop);
+        Object.assign(s, patch);
       });
   };
   const undo = () =>
@@ -318,7 +423,9 @@ export default function App() {
         );
       }
     }
-    setHistory({ past: [], present: clone(net), future: [] });
+    const value = { past: [], present: clone(net), future: [] };
+    historyRef.current = value;
+    setHistory(value);
     setSelectedService(net.services[0]?.id || "");
     setSelectedStation(null);
     setJourneyFrom("");
@@ -328,8 +435,85 @@ export default function App() {
     setModal(null);
     setPlaying(false);
     setError("");
+    setSelectedTrack(null);
+    setSelectedJunction(null);
+    setTrackStart(null);
     announce(`Opened ${net.name}`);
   };
+  const uiSettings = () => ({
+    labels,
+    basemap,
+    schematic,
+    showInfrastructure,
+    basemapSourceId: basemapSource.id,
+    overpassEndpoint,
+  });
+  const applySettings = (settings: Record<string, unknown>) => {
+    if (typeof settings.overpassEndpoint === "string")
+      setOverpassEndpoint(settings.overpassEndpoint);
+    if (typeof settings.labels === "boolean") setLabels(settings.labels);
+    if (typeof settings.basemap === "boolean") setBasemap(settings.basemap);
+    if (typeof settings.schematic === "boolean")
+      setSchematic(settings.schematic);
+    if (typeof settings.showInfrastructure === "boolean")
+      setShowInfrastructure(settings.showInfrastructure);
+    if (typeof settings.basemapSourceId === "string")
+      void listBasemapSources()
+        .then((sources) => {
+          const source = sources.find(
+            (s) => s.id === settings.basemapSourceId && !s.needsReattach,
+          );
+          if (source) setBasemapSource(source);
+        })
+        .catch(() => {});
+  };
+  useEffect(() => registerOffline(setOfflineStatus), []);
+  useEffect(() => {
+    let live = true;
+    void readSavedWorkspace()
+      .then((saved) => {
+        if (!live || !saved) return;
+        const untouched = historyRef.current === bootHistory.current;
+        if (
+          untouched &&
+          !bootShared.current &&
+          Date.parse(saved.current.updatedAt) >=
+            Date.parse(historyRef.current.present.updatedAt)
+        ) {
+          const value = { past: [], present: saved.current, future: [] };
+          historyRef.current = value;
+          setHistory(value);
+          setSelectedService(saved.current.services[0]?.id || "");
+          setFocusKey((k) => k + 1);
+        }
+        setLibrary((current) => {
+          const combined = new Map<string, Network>();
+          const previous =
+            !untouched && saved.current.id !== historyRef.current.present.id
+              ? [saved.current]
+              : [];
+          for (const project of [...saved.library, ...previous, ...current]) {
+            const old = combined.get(project.id);
+            if (
+              !old ||
+              Date.parse(project.updatedAt) >= Date.parse(old.updatedAt)
+            )
+              combined.set(project.id, project);
+          }
+          return [...combined.values()];
+        });
+        if (untouched) applySettings(saved.settings || {});
+      })
+      .catch((e) => {
+        if (live) announce(`Device storage: ${(e as Error).message}`);
+      })
+      .finally(() => {
+        if (live) setHydrated(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   useEffect(() => {
     if (location.hash.startsWith("#map="))
       window.history.replaceState(
@@ -339,17 +523,24 @@ export default function App() {
       );
   }, []);
   useEffect(() => {
+    if (!hydrated) return;
     setSaved("Saving…");
     const persist = () => {
+      const ready = normalizeDraft(clone(n), true);
       try {
-        localStorage.setItem(
-          STORE,
-          JSON.stringify(normalizeDraft(clone(n), true)),
-        );
-        setSaved("Saved locally");
+        localStorage.setItem(STORE, JSON.stringify(ready));
+        localStorage.setItem(LIBRARY, JSON.stringify(library));
       } catch {
-        setSaved("Storage full · export a backup");
+        /* IndexedDB is the primary store for large projects. */
       }
+      void writeSavedWorkspace({
+        current: ready,
+        library: library.map((v) => normalizeDraft(clone(v), true)),
+        settings: uiSettings(),
+        savedAt: date(),
+      })
+        .then(() => setSaved("Saved on this device"))
+        .catch(() => setSaved("Storage unavailable · export a backup"));
     };
     const timer = setTimeout(persist, 400);
     window.addEventListener("pagehide", persist);
@@ -357,7 +548,17 @@ export default function App() {
       clearTimeout(timer);
       window.removeEventListener("pagehide", persist);
     };
-  }, [n]);
+  }, [
+    n,
+    library,
+    hydrated,
+    labels,
+    basemap,
+    schematic,
+    basemapSource,
+    showInfrastructure,
+    overpassEndpoint,
+  ]);
   useEffect(() => {
     if (modal !== "atlas" || catalog) return;
     let live = true;
@@ -380,8 +581,12 @@ export default function App() {
         normalizeDraft(clone(n), true),
         ...library.filter((v) => v.id !== n.id),
       ].slice(0, 24);
-      localStorage.setItem(LIBRARY, JSON.stringify(next));
       setLibrary(next);
+      try {
+        localStorage.setItem(LIBRARY, JSON.stringify(next));
+      } catch {
+        /* Primary IndexedDB persistence handles larger snapshots. */
+      }
       announce("Snapshot saved to My maps");
     } catch {
       announce("Browser storage is full. Export a project backup.");
@@ -398,6 +603,10 @@ export default function App() {
         update((d) => {
           d.stations = d.stations.filter((s) => s.id !== id);
           d.services.forEach((s) => {
+            if (s.stopPattern)
+              s.stopPattern = s.stopPattern.filter(
+                (_, index) => s.stationIds[index] !== id,
+              );
             s.stationIds = s.stationIds.filter((x) => x !== id);
             s.skippedStationIds = s.skippedStationIds.filter((x) => x !== id);
             s.waypoints = {};
@@ -445,6 +654,8 @@ export default function App() {
         d: "draw",
         b: "bend",
         e: "erase",
+        j: "junction",
+        t: "track",
       };
       if (keys[e.key.toLowerCase()]) setTool(keys[e.key.toLowerCase()]);
       if (e.key === "Escape") {
@@ -468,14 +679,17 @@ export default function App() {
       });
       if (tool === "draw" && service) {
         const s = d.services.find((s) => s.id === service.id)!;
-        s.stationIds.push(id);
-        s.shape = undefined;
+        extendServiceTo(d, s.id, id);
       }
     });
     setSelectedStation(id);
     if (tool === "draw") setSelectedStation(null);
   };
   const stationClick = (id: string) => {
+    if (tool === "track") {
+      connectTrackNode(id);
+      return;
+    }
     if (tool === "erase") {
       deleteStation(id);
       return;
@@ -486,17 +700,56 @@ export default function App() {
         return;
       }
       if (service.stationIds[service.stationIds.length - 1] === id) return;
-      patchService({
-        stationIds: [...service.stationIds, id],
-        shape: undefined,
+      update((d) => {
+        extendServiceTo(d, service.id, id);
       });
       announce("Station appended to service");
       return;
     }
     setSelectedStation(id);
+    setSelectedTrack(null);
+    setSelectedJunction(null);
     setTab("service");
   };
+  const connectTrackNode = (id: string) => {
+    if (!trackStart) {
+      setTrackStart(id);
+      announce("Choose the next station or junction to connect.");
+      return;
+    }
+    if (trackStart === id) return;
+    let created = "";
+    if (
+      update((d) => {
+        created = addTrack(d, trackStart, id).id;
+      })
+    ) {
+      setTrackStart(id);
+      setSelectedTrack(created);
+      setTab("tracks");
+      setShowInfrastructure(true);
+    }
+  };
   const onMapClick = (point: LatLng) => {
+    if (tool === "junction" || tool === "track") {
+      const id = uid("junction");
+      update((d) => {
+        (d.junctions ??= []).push({
+          id,
+          name: `Junction ${(d.junctions?.length || 0) + 1}`,
+          lat: point[0],
+          lng: point[1],
+        });
+        if (tool === "track" && trackStart) addTrack(d, trackStart, id);
+      });
+      setSelectedJunction(id);
+      setSelectedTrack(null);
+      setSelectedStation(null);
+      setShowInfrastructure(true);
+      setTab("tracks");
+      if (tool === "track") setTrackStart(id);
+      return;
+    }
     if (tool === "station" || tool === "draw") {
       if (tool === "draw" && !service) {
         setModal("route");
@@ -507,6 +760,14 @@ export default function App() {
   };
   const addBend = (from: string, to: string, point: LatLng) => {
     if (!service) return;
+    if (service.trackPath?.length) {
+      announce(
+        "This service uses physical tracks. Open Tracks and select a section to edit its geometry.",
+      );
+      setTab("tracks");
+      setShowInfrastructure(true);
+      return;
+    }
     patchService({
       waypoints: insertWaypoint(n, service, from, to, point),
       shape: undefined,
@@ -556,30 +817,56 @@ export default function App() {
     if (!service) return;
     const id = uid("sv"),
       next = clone(service);
+    let physicalBranchStation: string | undefined;
     next.id = id;
     next.name = `${route?.shortName || ""} ${kind === "express" ? "Express" : "Branch " + n.services.filter((s) => s.routeId === service.routeId).length}`;
     next.kind = kind === "express" ? "express" : "local";
     if (kind === "express") {
+      next.stopPattern = expressStopPattern(service);
       next.skippedStationIds = next.stationIds.filter(
-        (_, i) => i > 0 && i < next.stationIds.length - 1 && i % 3 !== 0,
+        (_, i) => !next.stopPattern![i],
       );
     } else {
+      if (service.loop) {
+        setModal("branch");
+        return;
+      }
       const idx = selectedStation
         ? next.stationIds.indexOf(selectedStation)
         : -1;
-      next.stationIds = next.stationIds.slice(
-        0,
-        idx >= 0 ? idx + 1 : Math.max(1, Math.ceil(next.stationIds.length / 2)),
-      );
-      next.skippedStationIds = next.skippedStationIds.filter((s) =>
-        next.stationIds.includes(s),
-      );
-      next.shape = undefined;
-      next.loop = false;
+      if (next.trackPath) {
+        physicalBranchStation =
+          next.stationIds[
+            idx >= 0
+              ? idx
+              : Math.max(0, Math.ceil(next.stationIds.length / 2) - 1)
+          ];
+      } else {
+        next.stationIds = next.stationIds.slice(
+          0,
+          idx >= 0
+            ? idx + 1
+            : Math.max(1, Math.ceil(next.stationIds.length / 2)),
+        );
+        next.skippedStationIds = next.skippedStationIds.filter((s) =>
+          next.stationIds.includes(s),
+        );
+        next.shape = undefined;
+        next.stopPattern = next.stopPattern?.slice(0, next.stationIds.length);
+        next.loop = false;
+      }
     }
-    update((d) => {
-      d.services.push(next);
-    });
+    if (
+      !update((d) => {
+        const value = physicalBranchStation
+          ? branchFromLoop(d, service.id, physicalBranchStation, 0)
+          : next;
+        value.id = id;
+        value.name = next.name;
+        d.services.push(value);
+      })
+    )
+      return;
     setSelectedService(id);
     setSelectedStation(null);
     setTool(kind === "branch" ? "draw" : "select");
@@ -587,6 +874,174 @@ export default function App() {
       kind === "express"
         ? "Express created. Choose exactly which stations it serves."
         : "Branch created from the existing trunk. Click to extend it.",
+    );
+  };
+  const moveServiceStop = (from: number, to: number) => {
+    if (!service) return;
+    const ids = [...service.stationIds],
+      stops = ids.map((_, i) => serviceStopsAt(service, i));
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    [stops[from], stops[to]] = [stops[to], stops[from]];
+    patchService({
+      stationIds: ids,
+      stopPattern: stops,
+      shape: undefined,
+      waypoints: {},
+      trackPath: undefined,
+    });
+  };
+  const removeServiceStop = (index: number) => {
+    if (!service) return;
+    const stops = service.stationIds.map((_, i) => serviceStopsAt(service, i));
+    patchService({
+      stationIds: service.stationIds.filter((_, i) => i !== index),
+      stopPattern: stops.filter((_, i) => i !== index),
+      shape: undefined,
+      waypoints: {},
+      trackPath: undefined,
+    });
+  };
+  const toggleStop = (index: number) => {
+    if (!service) return;
+    const stop = !serviceStopsAt(service, index),
+      id = service.stationIds[index];
+    if (n.stations.find((s) => s.id === id)?.isWaypoint) {
+      announce("Convert this waypoint to a station before adding a stop.");
+      return;
+    }
+    update((d) =>
+      setOccurrenceStop(
+        d.services.find((s) => s.id === service.id)!,
+        index,
+        stop,
+        d,
+      ),
+    );
+  };
+  const makeBranch = (form: HTMLFormElement) => {
+    if (!service) return;
+    const f = new FormData(form);
+    let id = "";
+    if (
+      update((d) => {
+        const next = branchFromLoop(
+          d,
+          service.id,
+          String(f.get("station")),
+          Number(f.get("laps") || 0),
+        );
+        next.name = String(f.get("name")).trim() || `${service.name} branch`;
+        next.kind = f.get("kind") as Service["kind"];
+        id = next.id;
+        d.services.push(next);
+      })
+    ) {
+      setSelectedService(id);
+      setSelectedStation(null);
+      setTool("draw");
+      setModal(null);
+      setShowInfrastructure(true);
+      announce(
+        "Branch created. Extend to new stations, then rejoin an existing station if desired.",
+      );
+    }
+  };
+  const restoreBundle = async (bundle: WorkspaceBundle) => {
+    const mapIds = bundle.offlineMaps
+      ? await importOfflineMaps(bundle.offlineMaps)
+      : {};
+    const current =
+      bundle.projects.find((p) => p.id === bundle.currentProjectId) ||
+      bundle.projects[0];
+    if (!current) throw Error("Workspace backup contains no projects.");
+    const imported = new Set(bundle.projects.map((p) => p.id));
+    const merged = [
+      ...bundle.projects.filter((p) => p.id !== current.id),
+      ...library.filter((p) => !imported.has(p.id)),
+      ...(!imported.has(n.id) && n.id !== current.id
+        ? [normalizeDraft(clone(n), true)]
+        : []),
+    ];
+    load(current);
+    setLibrary([...new Map(merged.map((p) => [p.id, p])).values()]);
+    applySettings({
+      ...bundle.settings,
+      basemapSourceId:
+        mapIds[String(bundle.settings.basemapSourceId)] ||
+        bundle.settings.basemapSourceId,
+    });
+    announce(
+      `Restored ${bundle.projects.length} projects with settings and source data.`,
+    );
+  };
+  const backupWorkspace = async () => {
+    try {
+      const projects = [
+        normalizeDraft(clone(n), true),
+        ...library
+          .filter((p) => p.id !== n.id)
+          .map((p) => normalizeDraft(clone(p), true)),
+      ];
+      const bundle = {
+        projects,
+        currentProjectId: n.id,
+        settings: uiSettings(),
+        offlineMaps: await exportOfflineMaps(),
+      };
+      download(
+        "metroweave-workspace.zip",
+        exportWorkspaceZIP(bundle),
+        "application/zip",
+      );
+      announce(
+        "Complete workspace backup exported. Large PMTiles archives remain separate files.",
+      );
+    } catch (e) {
+      announce((e as Error).message);
+    }
+  };
+  const copyProject = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        JSON.stringify(normalizeDraft(clone(n), true), null, 2),
+      );
+      announce(
+        "Complete project JSON copied, including track infrastructure and original import data.",
+      );
+    } catch {
+      announce("Clipboard is unavailable. Export a project file instead.");
+    }
+  };
+  const exportCSV = () => {
+    const tables = exportNetworkCSV(normalizeDraft(clone(n), true));
+    const files = Object.fromEntries(
+      Object.entries(tables).map(([name, data]) => [
+        `${name}.csv`,
+        strToU8(data),
+      ]),
+    );
+    download(
+      "metroweave-network-tables.zip",
+      zipSync(files),
+      "application/zip",
+    );
+    announce("All network tables exported in one ZIP archive.");
+  };
+  const importJSONValue = async (data: unknown) => {
+    if (isWorkspaceBundle(data)) {
+      await restoreBundle(parseWorkspace(data));
+      return;
+    }
+    const value = data as { type?: string };
+    const net =
+      value.type === "FeatureCollection"
+        ? importGeoJSON(data)
+        : isMetroDreamin(data)
+          ? importMetroDreamin(data)
+          : validateNetwork(data);
+    load(validateNetwork(net));
+    announce(
+      `Imported ${net.stations.length} nodes and ${net.services.length} service patterns. Original MetroDreamin data is retained when present.`,
     );
   };
   const removeRoute = () => {
@@ -610,22 +1065,23 @@ export default function App() {
     setError("");
     setBusy(`Importing ${file.name}…`);
     try {
-      if (file.size > 60 * 1024 * 1024)
-        throw Error("Please use a file smaller than 60 MB.");
-      let net: Network;
-      if (file.name.toLowerCase().endsWith(".zip"))
-        net = await importGTFS(await file.arrayBuffer());
-      else {
-        const data = JSON.parse(await file.text());
-        net =
-          data.type === "FeatureCollection"
-            ? importGeoJSON(data)
-            : validateNetwork(data);
-      }
-      load(validateNetwork(net));
-      announce(
-        `Imported ${net.stations.length} stations and ${net.services.length} service patterns`,
-      );
+      if (file.size > 100 * 1024 * 1024)
+        throw Error("Please use a file smaller than 100 MB.");
+      if (file.name.toLowerCase().endsWith(".zip")) {
+        const buffer = await file.arrayBuffer(),
+          kind = classifyArchive(buffer);
+        if (kind === "workspace") await restoreBundle(parseWorkspace(buffer));
+        else if (kind === "gtfs") {
+          const net = await importGTFS(buffer);
+          load(net);
+          announce(
+            `Imported ${net.stations.length} nodes and ${net.services.length} service patterns.`,
+          );
+        } else
+          throw Error(
+            "This ZIP is neither a MetroWeave workspace backup nor a GTFS feed.",
+          );
+      } else await importJSONValue(JSON.parse(await file.text()));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -645,7 +1101,11 @@ export default function App() {
     setBusy(`Fetching ${city.city} from OpenStreetMap…`);
     setError("");
     try {
-      const net = await importOSM(city, abort.current.signal);
+      const net = await importOSM(
+        city,
+        abort.current.signal,
+        overpassEndpoint || undefined,
+      );
       load(validateNetwork(net));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -663,6 +1123,25 @@ export default function App() {
       load(validateNetwork(await response.json()));
     } catch (e) {
       setError((e as Error).message);
+    }
+  };
+  const loadWorkshop = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.BASE_URL}data/advanced-workshop.json`,
+      );
+      if (!response.ok) throw Error("Could not load the track workshop.");
+      const net = validateNetwork(await response.json());
+      load(net);
+      setSelectedService("m-express");
+      setTab("tracks");
+      setShowInfrastructure(true);
+      setTimeout(() => {
+        const at = net.stations.find((s) => s.id === "finchleyroad");
+        if (at) mapAPI.current?.locate([at.lat, at.lng]);
+      }, 250);
+    } catch (e) {
+      announce((e as Error).message);
     }
   };
   const share = async () => {
@@ -712,6 +1191,8 @@ export default function App() {
   const setActiveService = (id: string) => {
     setSelectedService(id);
     setSelectedStation(null);
+    setSelectedTrack(null);
+    setSelectedJunction(null);
     setTab("service");
   };
   const exportFile = (type: "json" | "geojson" | "svg") => {
@@ -769,6 +1250,25 @@ export default function App() {
           </button>
         </nav>
         <div className="header-actions">
+          <button
+            className={`offline-indicator ${offlineStatus.offline ? "is-offline" : ""}`}
+            title="Offline status and map servers"
+            aria-label="Offline & map servers"
+            onClick={() => setModal("offline")}
+          >
+            {offlineStatus.offline ? (
+              <WifiOff size={16} />
+            ) : (
+              <HardDrive size={16} />
+            )}
+            <span>
+              {offlineStatus.offline
+                ? "Offline"
+                : offlineStatus.ready
+                  ? "Offline ready"
+                  : "Device storage"}
+            </span>
+          </button>
           <span className="save-state">
             <span />
             {saved}
@@ -864,7 +1364,7 @@ export default function App() {
                     }}
                   >
                     <span
-                      className="line-badge"
+                      className={`line-badge badge-${r.icon || "square"}`}
                       style={{ background: r.color }}
                     >
                       {r.shortName}
@@ -1005,21 +1505,46 @@ export default function App() {
             tool={tool}
             labels={labels}
             basemap={basemap}
+            mapSource={basemapSource}
+            offline={offlineStatus.offline}
+            showInfrastructure={showInfrastructure}
+            selectedTrackId={selectedTrack}
+            selectedJunctionId={selectedJunction}
+            onTrack={(id) => {
+              setSelectedTrack(id);
+              setSelectedJunction(null);
+              setSelectedStation(null);
+              setTab("tracks");
+              setShowInfrastructure(true);
+              setMobilePanel("inspector");
+            }}
+            onJunction={(id) => {
+              if (tool === "track") {
+                connectTrackNode(id);
+                return;
+              }
+              setSelectedJunction(id);
+              setSelectedTrack(null);
+              setSelectedStation(null);
+              setTab("tracks");
+              setShowInfrastructure(true);
+            }}
+            onTrackBend={(id, point) =>
+              update((d) => insertTrackPoint(d, id, point))
+            }
+            onTrackPointMove={(id, index, point) =>
+              update((d) => {
+                const t = d.tracks?.find((t) => t.id === id);
+                if (t) t.geometry[index] = point;
+              })
+            }
+            onMapError={(message) => announce(`Map source: ${message}`)}
             schematic={schematic}
             playing={playing}
             simulationSpeed={simulationSpeed}
             focusKey={focusKey}
             onStation={stationClick}
-            onMove={(id, point) =>
-              update((d) => {
-                const s = d.stations.find((s) => s.id === id)!;
-                s.lat = point[0];
-                s.lng = point[1];
-                d.services
-                  .filter((v) => v.stationIds.includes(id))
-                  .forEach((v) => (v.shape = undefined));
-              })
-            }
+            onMove={(id, point) => update((d) => moveNode(d, id, point))}
             onClick={onMapClick}
             onBend={addBend}
             onWaypointMove={(key, index, point) => {
@@ -1075,6 +1600,31 @@ export default function App() {
               </button>
             ))}
             <span className="tool-separator" />
+            <button
+              className={tool === "junction" ? "active" : ""}
+              title="Add junction (J)"
+              aria-label="Add junction (J)"
+              onClick={() => {
+                setTool("junction");
+                setTab("tracks");
+                setShowInfrastructure(true);
+              }}
+            >
+              <Waypoints size={19} />
+            </button>
+            <button
+              className={tool === "track" ? "active" : ""}
+              title="Connect tracks (T)"
+              aria-label="Connect tracks (T)"
+              onClick={() => {
+                setTool("track");
+                setTrackStart(null);
+                setTab("tracks");
+                setShowInfrastructure(true);
+              }}
+            >
+              <GitBranch size={19} />
+            </button>
             <button
               onClick={() => setModal("import")}
               title="Import a network"
@@ -1166,7 +1716,13 @@ export default function App() {
                   ? `Building ${service?.name || "a new service"} · Click a station or the map`
                   : tool === "bend"
                     ? "Click the selected service to add a bend · Drag squares to reshape"
-                    : "Click a station to delete it"}
+                    : tool === "junction"
+                      ? "Click to add a non-boarding track junction"
+                      : tool === "track"
+                        ? trackStart
+                          ? "Choose the next station, junction or map point"
+                          : "Choose a station or junction to start a track"
+                        : "Click a station to delete it"}
             <button onClick={() => setModal("help")} aria-label="Editing help">
               <HelpCircle size={13} />
             </button>
@@ -1203,6 +1759,15 @@ export default function App() {
               onClick={() => setTab("journey")}
             >
               Journey
+            </button>
+            <button
+              className={tab === "tracks" ? "selected" : ""}
+              onClick={() => {
+                setTab("tracks");
+                setShowInfrastructure(true);
+              }}
+            >
+              Tracks
             </button>
             <button
               className={tab === "layers" ? "selected" : ""}
@@ -1270,8 +1835,7 @@ export default function App() {
                           const v = Number(e.target.value);
                           if (Number.isFinite(v) && Math.abs(v) <= 85)
                             update((d) => {
-                              d.stations.find((s) => s.id === station.id)!.lat =
-                                v;
+                              moveNode(d, station.id, [v, station.lng]);
                               d.services
                                 .filter((s) =>
                                   s.stationIds.includes(station.id),
@@ -1293,8 +1857,7 @@ export default function App() {
                           const v = Number(e.target.value);
                           if (Number.isFinite(v) && Math.abs(v) <= 180)
                             update((d) => {
-                              d.stations.find((s) => s.id === station.id)!.lng =
-                                v;
+                              moveNode(d, station.id, [station.lat, v]);
                               d.services
                                 .filter((s) =>
                                   s.stationIds.includes(station.id),
@@ -1340,6 +1903,17 @@ export default function App() {
                       transfers in the journey planner.
                     </small>
                   </label>
+                  <StationDetails station={station} onEdit={update} />
+                  <button
+                    className="secondary full"
+                    onClick={() => {
+                      setSelectedStation(null);
+                      setTab("tracks");
+                      setShowInfrastructure(true);
+                    }}
+                  >
+                    <Waypoints size={14} /> Track infrastructure at this station
+                  </button>
                   <div className="section-title">SERVICES AT THIS STATION</div>
                   <div className="station-services">
                     {n.services
@@ -1358,9 +1932,12 @@ export default function App() {
                           />
                           {s.name}
                           <small>
-                            {s.skippedStationIds.includes(station.id)
-                              ? "passes"
-                              : "stops"}
+                            {s.stationIds.some(
+                              (id, i) =>
+                                id === station.id && serviceStopsAt(s, i),
+                            )
+                              ? "stops"
+                              : "passes"}
                           </small>
                         </button>
                       ))}
@@ -1393,7 +1970,7 @@ export default function App() {
                 <>
                   <div className="inspector-title">
                     <span
-                      className="big-badge"
+                      className={`big-badge badge-${route.icon || "square"}`}
                       style={{ background: route.color }}
                     >
                       {route.shortName}
@@ -1415,8 +1992,8 @@ export default function App() {
                     <div>
                       <strong>
                         {
-                          service.stationIds.filter(
-                            (s) => !service.skippedStationIds.includes(s),
+                          service.stationIds.filter((_s, i) =>
+                            serviceStopsAt(service, i),
                           ).length
                         }
                       </strong>
@@ -1496,7 +2073,8 @@ export default function App() {
                     {service.stationIds.map((id, index) => {
                       const st = n.stations.find((s) => s.id === id);
                       if (!st) return null;
-                      const skipped = service.skippedStationIds.includes(id);
+                      const skipped =
+                        !serviceStopsAt(service, index) || st.isWaypoint;
                       return (
                         <li
                           key={`${id}-${index}`}
@@ -1514,15 +2092,7 @@ export default function App() {
                                 : "Stops here — click to skip"
                             }
                             aria-label={`${skipped ? "Make stop at" : "Skip"} ${st.name}`}
-                            onClick={() =>
-                              patchService({
-                                skippedStationIds: skipped
-                                  ? service.skippedStationIds.filter(
-                                      (x) => x !== id,
-                                    )
-                                  : [...service.skippedStationIds, id],
-                              })
-                            }
+                            onClick={() => toggleStop(index)}
                           />
                           <button
                             className="stop-name"
@@ -1539,18 +2109,7 @@ export default function App() {
                               title="Move stop up"
                               aria-label={`Move ${st.name} up`}
                               disabled={index === 0}
-                              onClick={() => {
-                                const ids = [...service.stationIds];
-                                [ids[index], ids[index - 1]] = [
-                                  ids[index - 1],
-                                  ids[index],
-                                ];
-                                patchService({
-                                  stationIds: ids,
-                                  shape: undefined,
-                                  waypoints: {},
-                                });
-                              }}
+                              onClick={() => moveServiceStop(index, index - 1)}
                             >
                               <MoveUp size={11} />
                             </button>
@@ -1558,33 +2117,14 @@ export default function App() {
                               title="Move stop down"
                               aria-label={`Move ${st.name} down`}
                               disabled={index === service.stationIds.length - 1}
-                              onClick={() => {
-                                const ids = [...service.stationIds];
-                                [ids[index], ids[index + 1]] = [
-                                  ids[index + 1],
-                                  ids[index],
-                                ];
-                                patchService({
-                                  stationIds: ids,
-                                  shape: undefined,
-                                  waypoints: {},
-                                });
-                              }}
+                              onClick={() => moveServiceStop(index, index + 1)}
                             >
                               <MoveDown size={11} />
                             </button>
                             <button
                               title="Remove from this service"
                               aria-label={`Remove ${st.name} from service`}
-                              onClick={() =>
-                                patchService({
-                                  stationIds: service.stationIds.filter(
-                                    (_, i) => i !== index,
-                                  ),
-                                  shape: undefined,
-                                  waypoints: {},
-                                })
-                              }
+                              onClick={() => removeServiceStop(index)}
                             >
                               <X size={11} />
                             </button>
@@ -1602,6 +2142,29 @@ export default function App() {
                   >
                     <Plus size={14} /> Extend this service
                   </button>
+                  <div className="service-advanced-actions">
+                    <button
+                      className="text-btn"
+                      onClick={() => {
+                        setTab("tracks");
+                        setShowInfrastructure(true);
+                      }}
+                    >
+                      <Waypoints size={14} /> Passing loops & tracks
+                    </button>
+                    <button
+                      className="text-btn"
+                      onClick={() => setModal("branch")}
+                    >
+                      <GitBranch size={14} /> Branch options
+                    </button>
+                    <button
+                      className="text-btn"
+                      onClick={() => setModal("rejoin")}
+                    >
+                      <Repeat2 size={14} /> Rejoin line
+                    </button>
+                  </div>
                   <details
                     className="advanced"
                     open={service.stationIds.length === 0}
@@ -1688,11 +2251,8 @@ export default function App() {
                     <button
                       className="secondary full"
                       onClick={() =>
-                        patchService({
-                          stationIds: [...service.stationIds].reverse(),
-                          shape: service.shape
-                            ? [...service.shape].reverse()
-                            : undefined,
+                        update((d) => {
+                          reverseServicePath(d, service.id);
                         })
                       }
                     >
@@ -1785,18 +2345,16 @@ export default function App() {
                           })
                         }
                       >
-                        {[
-                          "metro",
-                          "rail",
-                          "tram",
-                          "monorail",
-                          "maglev",
-                          "light-metro",
-                        ].map((x) => (
+                        {TRANSPORT_MODES.map((x) => (
                           <option key={x}>{x}</option>
                         ))}
                       </select>
                     </label>
+                    <RouteAppearance
+                      network={n}
+                      route={route}
+                      onEdit={update}
+                    />
                     <button className="danger-link" onClick={removeRoute}>
                       <Trash2 size={13} /> Delete line and its patterns
                     </button>
@@ -1834,11 +2392,13 @@ export default function App() {
                     onChange={(e) => setJourneyFrom(e.target.value)}
                   >
                     <option value="">Choose a station</option>
-                    {n.stations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
+                    {n.stations
+                      .filter((s) => !s.isWaypoint)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
                   </select>
                 </label>
                 <button
@@ -1858,11 +2418,13 @@ export default function App() {
                     onChange={(e) => setJourneyTo(e.target.value)}
                   >
                     <option value="">Choose a station</option>
-                    {n.stations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
+                    {n.stations
+                      .filter((s) => !s.isWaypoint)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
                   </select>
                 </label>
                 {journeyFrom &&
@@ -1926,6 +2488,28 @@ export default function App() {
                 </div>
               </>
             )}
+            {tab === "tracks" && (
+              <TrackInspector
+                network={n}
+                service={service}
+                selectedStationId={selectedStation}
+                selectedTrackId={selectedTrack}
+                selectedJunctionId={selectedJunction}
+                onEdit={update}
+                onSelectService={setActiveService}
+                onSelectTrack={setSelectedTrack}
+                onSelectJunction={setSelectedJunction}
+                onTool={(v) => {
+                  setTool(v);
+                  if (v === "track") setTrackStart(null);
+                }}
+                onMessage={announce}
+                onLoopBranch={() => setModal("branch")}
+                onRejoin={() => setModal("rejoin")}
+                showInfrastructure={showInfrastructure}
+                onShowInfrastructure={setShowInfrastructure}
+              />
+            )}
             {tab === "layers" && (
               <>
                 <div className="inspector-title">
@@ -1972,6 +2556,13 @@ export default function App() {
                   is a simplified geographic view, rather than an optimized
                   schematic layout.
                 </p>
+                <button
+                  className="secondary full"
+                  onClick={() => setModal("offline")}
+                >
+                  <Server size={14} /> Offline maps & server sources
+                </button>
+                <LineGroups network={n} onEdit={update} />
                 <div className="section-title">LINE VISIBILITY</div>
                 {n.routes.map((r) => (
                   <label key={r.id} className="toggle-row">
@@ -2024,7 +2615,7 @@ export default function App() {
           <div>
             <strong>Bring your network to life</strong>
             <span>
-              Geometry preview <span>·</span> No timetable simulation
+              Track path preview <span>·</span> No signal simulation
             </span>
           </div>
         </div>
@@ -2122,23 +2713,29 @@ export default function App() {
       {modal && (
         <Modal
           title={
-            modal === "atlas"
-              ? "A world worth connecting."
-              : modal === "library"
-                ? "Your ideas, kept close."
-                : modal === "import"
-                  ? "Start with real connections."
-                  : modal === "export"
-                    ? "Take your network with you."
-                    : modal === "route"
-                      ? "Make a new connection."
-                      : modal === "new"
-                        ? "Your next great network."
-                        : modal === "project"
-                          ? "Project details"
-                          : modal === "sources"
-                            ? "Sources & coverage"
-                            : "Welcome to MetroWeave."
+            modal === "offline"
+              ? "Offline & map servers"
+              : modal === "branch"
+                ? "Branch from a line or loop"
+                : modal === "rejoin"
+                  ? "Rejoin an existing station"
+                  : modal === "atlas"
+                    ? "A world worth connecting."
+                    : modal === "library"
+                      ? "Your ideas, kept close."
+                      : modal === "import"
+                        ? "Start with real connections."
+                        : modal === "export"
+                          ? "Take your network with you."
+                          : modal === "route"
+                            ? "Make a new connection."
+                            : modal === "new"
+                              ? "Your next great network."
+                              : modal === "project"
+                                ? "Project details"
+                                : modal === "sources"
+                                  ? "Sources & coverage"
+                                  : "Welcome to MetroWeave."
           }
           subtitle={
             modal === "atlas"
@@ -2147,11 +2744,149 @@ export default function App() {
                 ? "Bring a project, geographic network or transit feed into the studio."
                 : undefined
           }
-          wide={modal === "atlas" || modal === "help"}
+          wide={modal === "atlas" || modal === "help" || modal === "offline"}
           onClose={() => {
             if (!busy) setModal(null);
           }}
         >
+          {modal === "offline" && (
+            <OfflinePanel
+              status={offlineStatus}
+              source={basemapSource}
+              overpassEndpoint={overpassEndpoint}
+              onOverpassEndpoint={setOverpassEndpoint}
+              onSource={(source) => {
+                setBasemapSource({ ...source });
+                setBasemap(true);
+                setSchematic(false);
+              }}
+              onMessage={announce}
+            />
+          )}
+          {modal === "branch" && service && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                makeBranch(e.currentTarget);
+              }}
+            >
+              <div className="notice">
+                <GitBranch size={17} />
+                <p>
+                  {service.loop
+                    ? "Choose where a train leaves the ring. Start at that point or complete a circuit before branching. The ring remains available as its own service."
+                    : "Copy the existing trunk through the chosen station, then extend an independent branch."}
+                </p>
+              </div>
+              <label className="field">
+                Source service
+                <input readOnly value={service.name} />
+              </label>
+              <label className="field">
+                Branch name
+                <input
+                  name="name"
+                  defaultValue={`${route?.name || service.name} branch`}
+                  required
+                  maxLength={140}
+                />
+              </label>
+              <label className="field">
+                Branch point
+                <select
+                  name="station"
+                  defaultValue={selectedStation || service.stationIds[0]}
+                  required
+                >
+                  {service.stationIds
+                    .filter((id, i, a) => a.indexOf(id) === i)
+                    .map((id) => (
+                      <option key={id} value={id}>
+                        {n.stations.find((s) => s.id === id)?.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {service.loop && (
+                <label className="field">
+                  Ring operation
+                  <select name="laps" defaultValue="0">
+                    <option value="0">
+                      Start at branch point and leave the ring
+                    </option>
+                    <option value="1">
+                      Run one complete ring, then branch out
+                    </option>
+                    <option value="2">
+                      Run two complete rings, then branch out
+                    </option>
+                  </select>
+                </label>
+              )}
+              <label className="field">
+                Service type
+                <select name="kind" defaultValue="local">
+                  <option value="local">Local</option>
+                  <option value="express">Express</option>
+                  <option value="limited">Limited</option>
+                  <option value="shuttle">Shuttle</option>
+                </select>
+              </label>
+              <button
+                className="primary full"
+                type="submit"
+                disabled={!service.stationIds.length}
+              >
+                <GitBranch size={15} /> Create branch & extend
+              </button>
+            </form>
+          )}
+          {modal === "rejoin" && service && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                if (
+                  update((d) => {
+                    extendServiceTo(d, service.id, String(f.get("station")));
+                  })
+                ) {
+                  setSelectedStation(null);
+                  setModal(null);
+                  setShowInfrastructure(true);
+                  announce("The service now rejoins the selected station.");
+                }
+              }}
+            >
+              <p className="muted">
+                Connect this service's current tail to any existing station.
+                Rejoining a ring does not automatically add another full
+                circuit.
+              </p>
+              <label className="field">
+                Service
+                <input readOnly value={service.name} />
+              </label>
+              <label className="field">
+                Rejoin at
+                <select name="station" required>
+                  {n.stations
+                    .filter(
+                      (s) =>
+                        !s.isWaypoint && s.id !== service.stationIds.at(-1),
+                    )
+                    .map((s) => (
+                      <option value={s.id} key={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button className="primary full" type="submit">
+                <Repeat2 size={15} /> Connect & rejoin
+              </button>
+            </form>
+          )}
           {modal === "atlas" && (
             <>
               <button
@@ -2264,6 +2999,22 @@ export default function App() {
           )}
           {modal === "library" && (
             <>
+              <button
+                className="reference-banner"
+                onClick={() => void loadWorkshop()}
+              >
+                <span className="city-icon">
+                  <Waypoints size={21} />
+                </span>
+                <span>
+                  <strong>Advanced track workshop</strong>
+                  <small>
+                    Passing loop · Express bypass · Complete ring followed by a
+                    branch and rejoin
+                  </small>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
               <div className="library-actions">
                 <button className="primary" onClick={() => setModal("new")}>
                   <Plus size={16} /> New map
@@ -2333,15 +3084,57 @@ export default function App() {
                 <strong>Drop a network here</strong>
                 <p>or click to choose a file</p>
                 <small>
-                  MetroWeave JSON · GeoJSON · GTFS ZIP · up to 60 MB
+                  MetroDreamin JSON · Workspace ZIP · GeoJSON · GTFS ZIP
                 </small>
               </button>
+              <details className="advanced">
+                <summary>
+                  <Copy size={14} /> Paste MetroDreamin or project JSON
+                </summary>
+                <textarea
+                  className="paste-import"
+                  aria-label="Paste map JSON"
+                  value={pasteImport}
+                  onChange={(e) => setPasteImport(e.target.value)}
+                  placeholder="Paste a MetroDreamin export, MetroWeave project, or complete workspace JSON"
+                />
+                <button
+                  className="primary full"
+                  disabled={!pasteImport.trim()}
+                  onClick={() => {
+                    try {
+                      void importJSONValue(JSON.parse(pasteImport)).catch((e) =>
+                        setError((e as Error).message),
+                      );
+                    } catch (e) {
+                      setError((e as Error).message);
+                    }
+                  }}
+                >
+                  Import pasted map
+                </button>
+              </details>
               <div className="import-types">
+                <div>
+                  <strong>MetroDreamin exports</strong>
+                  <p>
+                    Import lines, stations, waypoints, groups, grades and
+                    service modes. The complete original source data is retained
+                    inside the project, with a conversion report.
+                  </p>
+                </div>
+                <div>
+                  <strong>Complete workspace backup</strong>
+                  <p>
+                    Restore every exported project, source archive, setting and
+                    included GeoJSON map pack.
+                  </p>
+                </div>
                 <div>
                   <strong>Project JSON</strong>
                   <p>
-                    Restore all stations, route geometry, branches and service
-                    settings.
+                    Restore stations, physical tracks, branches, passing loops
+                    and service settings.
                   </p>
                 </div>
                 <div>
@@ -2370,6 +3163,20 @@ export default function App() {
           {modal === "export" && (
             <>
               <div className="export-options">
+                <button onClick={() => void backupWorkspace()}>
+                  <span className="city-icon">
+                    <HardDrive size={22} />
+                  </span>
+                  <div>
+                    <strong>Complete workspace backup</strong>
+                    <p>
+                      All projects, settings, source archives and GeoJSON map
+                      packs. PMTiles stay separate.
+                    </p>
+                  </div>
+                  <span className="format-tag">.ZIP</span>
+                  <Download size={17} />
+                </button>
                 {[
                   {
                     key: "json",
@@ -2415,6 +3222,33 @@ export default function App() {
                 Vector exports contain the transit network without street-map
                 tiles. Source attribution is included in your project file.
               </div>
+              <button
+                className="secondary full"
+                onClick={() => void copyProject()}
+              >
+                <Copy size={15} /> Copy complete project JSON
+              </button>
+              <button
+                className="secondary full"
+                onClick={() => {
+                  try {
+                    download(
+                      "metrodreamin-compatible.json",
+                      JSON.stringify(exportNetworkToMetroDreamin(n), null, 2),
+                    );
+                    announce(
+                      "MetroDreamin-compatible map exported. See its compatibilityReport for format differences.",
+                    );
+                  } catch (e) {
+                    announce((e as Error).message);
+                  }
+                }}
+              >
+                <Download size={15} /> Export MetroDreamin-compatible map
+              </button>
+              <button className="secondary full" onClick={exportCSV}>
+                <Download size={15} /> Export all network tables (CSV)
+              </button>
               <button className="secondary full" onClick={share}>
                 <Share2 size={15} /> Copy a self-contained share link
               </button>
@@ -2469,14 +3303,7 @@ export default function App() {
               <label className="field">
                 Mode
                 <select name="mode">
-                  {[
-                    "metro",
-                    "rail",
-                    "tram",
-                    "monorail",
-                    "maglev",
-                    "light-metro",
-                  ].map((m) => (
+                  {TRANSPORT_MODES.map((m) => (
                     <option key={m}>{m}</option>
                   ))}
                 </select>
@@ -2652,6 +3479,31 @@ export default function App() {
                 <h3>{n.name}</h3>
                 <p>{n.description}</p>
               </div>
+              {n.importMetadata && (
+                <div className="import-report">
+                  <div className="section-title">IMPORT CONVERSION REPORT</div>
+                  <p className="subtle">
+                    Original {n.importMetadata.format} data is retained in full
+                    in project exports.
+                  </p>
+                  {n.importMetadata.lossReport.map((v, i) => (
+                    <p className="subtle" key={i}>
+                      • {v}
+                    </p>
+                  ))}
+                  <button
+                    className="secondary full"
+                    onClick={() =>
+                      download(
+                        "original-map-source.json",
+                        JSON.stringify(n.importMetadata!.original, null, 2),
+                      )
+                    }
+                  >
+                    <Download size={14} /> Export original source unchanged
+                  </button>
+                </div>
+              )}
               {n.sources.map((s, i) => (
                 <a
                   className="source-link"
@@ -2689,6 +3541,22 @@ export default function App() {
           )}
           {modal === "help" && (
             <>
+              <button
+                className="reference-banner"
+                onClick={() => void loadWorkshop()}
+              >
+                <span className="city-icon">
+                  <Waypoints size={21} />
+                </span>
+                <span>
+                  <strong>Try the advanced track workshop</strong>
+                  <small>
+                    A ready-made passing loop, express bypass, and branching
+                    orbital service.
+                  </small>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
               <p className="help-intro">
                 A map is a possibility. Build lines that branch, loop and share
                 tracks, then decide exactly where each service stops.

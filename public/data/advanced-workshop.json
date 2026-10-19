@@ -1,0 +1,2798 @@
+{
+  "version": 1,
+  "id": "metroweave-advanced-workshop",
+  "name": "Advanced infrastructure workshop",
+  "city": "London",
+  "country": "United Kingdom",
+  "description": "FICTIONAL TRAINING LAYOUT. This is an editable workshop built from the imagined London sandbox, not a passenger map. Finchley Road has invented approach junctions and a separate passing track: the Meridian local uses its platform lane while the express bypasses that platform. A separate orbital branch starts at Paddington, runs one explicit complete lap, leaves for an invented Workshop Junction station, and rejoins the existing ring at Notting Hill Gate. All added infrastructure, junction positions, track alignments, station design settings and operating values are illustrative assumptions. Original geographic inspiration sources are retained; no real passing loop or surveyed railway geometry is claimed.",
+  "stations": [
+    {
+      "id": "wembley",
+      "name": "Wembley Park",
+      "lat": 51.5635,
+      "lng": -0.2795,
+      "code": "MW01",
+      "accessible": true
+    },
+    {
+      "id": "neasden",
+      "name": "Neasden",
+      "lat": 51.5542,
+      "lng": -0.2504,
+      "code": "MW02",
+      "accessible": true
+    },
+    {
+      "id": "willesden",
+      "name": "Willesden Green",
+      "lat": 51.5492,
+      "lng": -0.2215,
+      "code": "MW03",
+      "accessible": true
+    },
+    {
+      "id": "kilburn",
+      "name": "Kilburn",
+      "lat": 51.5469,
+      "lng": -0.2047,
+      "code": "MW04",
+      "accessible": true
+    },
+    {
+      "id": "westhampstead",
+      "name": "West Hampstead",
+      "lat": 51.5467,
+      "lng": -0.1906,
+      "code": "MW05",
+      "accessible": true
+    },
+    {
+      "id": "finchleyroad",
+      "name": "Finchley Road",
+      "lat": 51.5471,
+      "lng": -0.1803,
+      "code": "MW06",
+      "accessible": true
+    },
+    {
+      "id": "swisscottage",
+      "name": "Swiss Cottage",
+      "lat": 51.543,
+      "lng": -0.1755,
+      "code": "MW07",
+      "accessible": true
+    },
+    {
+      "id": "stjohnswood",
+      "name": "St John's Wood",
+      "lat": 51.5347,
+      "lng": -0.174,
+      "code": "MW08",
+      "accessible": true
+    },
+    {
+      "id": "bakerstreet",
+      "name": "Baker Street",
+      "lat": 51.5226,
+      "lng": -0.1571,
+      "code": "MW09",
+      "accessible": true
+    },
+    {
+      "id": "bondstreet",
+      "name": "Bond Street",
+      "lat": 51.5144,
+      "lng": -0.1494,
+      "code": "MW10",
+      "accessible": true
+    },
+    {
+      "id": "greenpark",
+      "name": "Green Park",
+      "lat": 51.5067,
+      "lng": -0.1429,
+      "code": "MW11",
+      "accessible": true
+    },
+    {
+      "id": "westminster",
+      "name": "Westminster",
+      "lat": 51.501,
+      "lng": -0.1254,
+      "code": "MW12",
+      "accessible": true
+    },
+    {
+      "id": "waterloo",
+      "name": "Waterloo",
+      "lat": 51.5036,
+      "lng": -0.1143,
+      "code": "MW13",
+      "accessible": true
+    },
+    {
+      "id": "southwark",
+      "name": "Southwark",
+      "lat": 51.504,
+      "lng": -0.1052,
+      "code": "MW14",
+      "accessible": true
+    },
+    {
+      "id": "londonbridge",
+      "name": "London Bridge",
+      "lat": 51.5054,
+      "lng": -0.0861,
+      "code": "MW15",
+      "accessible": true
+    },
+    {
+      "id": "bermondsey",
+      "name": "Bermondsey",
+      "lat": 51.4981,
+      "lng": -0.0635,
+      "code": "MW16",
+      "accessible": true
+    },
+    {
+      "id": "canadawater",
+      "name": "Canada Water",
+      "lat": 51.4981,
+      "lng": -0.0497,
+      "code": "MW17",
+      "accessible": true
+    },
+    {
+      "id": "canarywharf",
+      "name": "Canary Wharf",
+      "lat": 51.5036,
+      "lng": -0.0195,
+      "code": "MW18",
+      "accessible": true
+    },
+    {
+      "id": "northgreenwich",
+      "name": "North Greenwich",
+      "lat": 51.5003,
+      "lng": 0.0039,
+      "code": "MW19",
+      "accessible": true
+    },
+    {
+      "id": "canningtown",
+      "name": "Canning Town",
+      "lat": 51.5147,
+      "lng": 0.0083,
+      "code": "MW20",
+      "accessible": true
+    },
+    {
+      "id": "westham",
+      "name": "West Ham",
+      "lat": 51.5281,
+      "lng": 0.0051,
+      "code": "MW21",
+      "accessible": true
+    },
+    {
+      "id": "stratford",
+      "name": "Stratford",
+      "lat": 51.5413,
+      "lng": -0.0033,
+      "code": "MW22",
+      "accessible": true
+    },
+    {
+      "id": "paddington",
+      "name": "Paddington",
+      "lat": 51.5154,
+      "lng": -0.1755,
+      "code": "MW23",
+      "accessible": true
+    },
+    {
+      "id": "lancastergate",
+      "name": "Lancaster Gate",
+      "lat": 51.5119,
+      "lng": -0.175,
+      "code": "MW24",
+      "accessible": true
+    },
+    {
+      "id": "marblearch",
+      "name": "Marble Arch",
+      "lat": 51.5136,
+      "lng": -0.1586,
+      "code": "MW25",
+      "accessible": true
+    },
+    {
+      "id": "oxfordcircus",
+      "name": "Oxford Circus",
+      "lat": 51.5152,
+      "lng": -0.1419,
+      "code": "MW26",
+      "accessible": true
+    },
+    {
+      "id": "tottenhamcourt",
+      "name": "Tottenham Court Road",
+      "lat": 51.5162,
+      "lng": -0.1309,
+      "code": "MW27",
+      "accessible": true
+    },
+    {
+      "id": "holborn",
+      "name": "Holborn",
+      "lat": 51.5174,
+      "lng": -0.12,
+      "code": "MW28",
+      "accessible": true
+    },
+    {
+      "id": "stpauls",
+      "name": "St Paul's",
+      "lat": 51.5146,
+      "lng": -0.0973,
+      "code": "MW29",
+      "accessible": true
+    },
+    {
+      "id": "bank",
+      "name": "Bank",
+      "lat": 51.5134,
+      "lng": -0.089,
+      "code": "MW30",
+      "accessible": true
+    },
+    {
+      "id": "liverpoolstreet",
+      "name": "Liverpool Street",
+      "lat": 51.5178,
+      "lng": -0.0823,
+      "code": "MW31",
+      "accessible": true
+    },
+    {
+      "id": "whitechapel",
+      "name": "Whitechapel",
+      "lat": 51.5195,
+      "lng": -0.061,
+      "code": "MW32",
+      "accessible": true
+    },
+    {
+      "id": "mileend",
+      "name": "Mile End",
+      "lat": 51.5252,
+      "lng": -0.0334,
+      "code": "MW33",
+      "accessible": true
+    },
+    {
+      "id": "bowroad",
+      "name": "Bow Road",
+      "lat": 51.527,
+      "lng": -0.0252,
+      "code": "MW34",
+      "accessible": true
+    },
+    {
+      "id": "camdentown",
+      "name": "Camden Town",
+      "lat": 51.5393,
+      "lng": -0.1427,
+      "code": "MW35",
+      "accessible": true
+    },
+    {
+      "id": "mornington",
+      "name": "Mornington Crescent",
+      "lat": 51.5344,
+      "lng": -0.1385,
+      "code": "MW36",
+      "accessible": true
+    },
+    {
+      "id": "euston",
+      "name": "Euston",
+      "lat": 51.5282,
+      "lng": -0.1337,
+      "code": "MW37",
+      "accessible": true
+    },
+    {
+      "id": "kingscross",
+      "name": "King's Cross St Pancras",
+      "lat": 51.5308,
+      "lng": -0.1238,
+      "code": "MW38",
+      "accessible": true
+    },
+    {
+      "id": "angel",
+      "name": "Angel",
+      "lat": 51.5327,
+      "lng": -0.1058,
+      "code": "MW39",
+      "accessible": true
+    },
+    {
+      "id": "oldstreet",
+      "name": "Old Street",
+      "lat": 51.5256,
+      "lng": -0.087,
+      "code": "MW40",
+      "accessible": true
+    },
+    {
+      "id": "moorgate",
+      "name": "Moorgate",
+      "lat": 51.5186,
+      "lng": -0.0886,
+      "code": "MW41",
+      "accessible": true
+    },
+    {
+      "id": "charingcross",
+      "name": "Charing Cross",
+      "lat": 51.5081,
+      "lng": -0.1248,
+      "code": "MW42",
+      "accessible": true
+    },
+    {
+      "id": "embankment",
+      "name": "Embankment",
+      "lat": 51.5072,
+      "lng": -0.1224,
+      "code": "MW43",
+      "accessible": true
+    },
+    {
+      "id": "elephant",
+      "name": "Elephant & Castle",
+      "lat": 51.4945,
+      "lng": -0.1005,
+      "code": "MW44",
+      "accessible": true
+    },
+    {
+      "id": "kennington",
+      "name": "Kennington",
+      "lat": 51.4884,
+      "lng": -0.1053,
+      "code": "MW45",
+      "accessible": true
+    },
+    {
+      "id": "battersea",
+      "name": "Battersea Power Station",
+      "lat": 51.4796,
+      "lng": -0.142,
+      "code": "MW46",
+      "accessible": true
+    },
+    {
+      "id": "oval",
+      "name": "Oval",
+      "lat": 51.4819,
+      "lng": -0.1125,
+      "code": "MW47",
+      "accessible": true
+    },
+    {
+      "id": "stockwell",
+      "name": "Stockwell",
+      "lat": 51.4723,
+      "lng": -0.1229,
+      "code": "MW48",
+      "accessible": true
+    },
+    {
+      "id": "brixton",
+      "name": "Brixton",
+      "lat": 51.4626,
+      "lng": -0.1146,
+      "code": "MW49",
+      "accessible": true
+    },
+    {
+      "id": "victoria",
+      "name": "Victoria",
+      "lat": 51.4964,
+      "lng": -0.1439,
+      "code": "MW50",
+      "accessible": true
+    },
+    {
+      "id": "sloane",
+      "name": "Sloane Square",
+      "lat": 51.4924,
+      "lng": -0.1565,
+      "code": "MW51",
+      "accessible": true
+    },
+    {
+      "id": "southkensington",
+      "name": "South Kensington",
+      "lat": 51.4941,
+      "lng": -0.1739,
+      "code": "MW52",
+      "accessible": true
+    },
+    {
+      "id": "highstreetkensington",
+      "name": "High Street Kensington",
+      "lat": 51.5009,
+      "lng": -0.1925,
+      "code": "MW53",
+      "accessible": true
+    },
+    {
+      "id": "nottinghill",
+      "name": "Notting Hill Gate",
+      "lat": 51.5091,
+      "lng": -0.196,
+      "code": "MW54",
+      "accessible": true
+    },
+    {
+      "id": "workshop-junction",
+      "name": "Workshop Junction (fictional)",
+      "lat": 51.5278,
+      "lng": -0.2138,
+      "grade": "above",
+      "info": "Invented training station used to demonstrate leaving and rejoining a ring. This is not a real London station."
+    }
+  ],
+  "routes": [
+    {
+      "id": "meridian",
+      "name": "Meridian",
+      "shortName": "M",
+      "color": "#f7bb48",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "thames",
+      "name": "Thames",
+      "shortName": "T",
+      "color": "#2bb7cc",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "northern",
+      "name": "Northern branches",
+      "shortName": "N",
+      "color": "#ee6d85",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "orbital",
+      "name": "Inner orbital",
+      "shortName": "O",
+      "color": "#a6ca65",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "crosscity",
+      "name": "Crosscity express",
+      "shortName": "X",
+      "color": "#ae94e4",
+      "mode": "rail",
+      "visible": true
+    },
+    {
+      "id": "victoria",
+      "name": "Southlink",
+      "shortName": "S",
+      "color": "#73a5f9",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "docklands",
+      "name": "Docklands connector",
+      "shortName": "D",
+      "color": "#f38c51",
+      "mode": "light-metro",
+      "visible": true
+    },
+    {
+      "id": "workshop-orbital",
+      "name": "Orbital workshop branch",
+      "shortName": "OB",
+      "color": "#167e91",
+      "mode": "metro",
+      "visible": true,
+      "icon": "diamond",
+      "pattern": "dash-dot"
+    }
+  ],
+  "services": [
+    {
+      "id": "m-local",
+      "routeId": "meridian",
+      "name": "Wembley Park → Stratford",
+      "kind": "local",
+      "stationIds": [
+        "wembley",
+        "neasden",
+        "willesden",
+        "kilburn",
+        "westhampstead",
+        "finchleyroad",
+        "swisscottage",
+        "stjohnswood",
+        "bakerstreet",
+        "bondstreet",
+        "greenpark",
+        "westminster",
+        "waterloo",
+        "southwark",
+        "londonbridge",
+        "bermondsey",
+        "canadawater",
+        "canarywharf",
+        "northgreenwich",
+        "canningtown",
+        "westham",
+        "stratford"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 3,
+      "speed": 46,
+      "dwell": 30,
+      "stopPattern": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "trackPath": [
+        {
+          "trackId": "track-b318ce28-58b1-4f55-a60f-f21ef40f0145"
+        },
+        {
+          "trackId": "track-10807b09-071c-4159-b75a-7ba45a2166bb"
+        },
+        {
+          "trackId": "track-7ccfc668-1cd8-4043-92e7-d21bbaca3628"
+        },
+        {
+          "trackId": "track-98280e29-304f-4a8d-946d-a53808214592"
+        },
+        {
+          "trackId": "track-e0b17904-5321-42e4-b52f-f9a5506d5e5b"
+        },
+        {
+          "trackId": "track-e04c2676-a222-453e-9474-c8c3a4c90a8b"
+        },
+        {
+          "trackId": "track-48121d9b-962a-4883-9cc1-4723965558b0"
+        },
+        {
+          "trackId": "track-79447630-33a3-446f-8df8-bf4182b989c2"
+        },
+        {
+          "trackId": "track-c3be84b7-55b1-4958-97f5-18811bb32114"
+        },
+        {
+          "trackId": "track-0ed84676-a96b-4326-99ad-47977c7392a7"
+        },
+        {
+          "trackId": "track-19a238e7-0efe-4a40-b7b6-25dfa0c95dd5"
+        },
+        {
+          "trackId": "track-e87566dc-f7a3-485e-9f5d-2bdd3d02bb7b"
+        },
+        {
+          "trackId": "track-72c94ea2-c17e-4deb-933f-c22038260dbb"
+        },
+        {
+          "trackId": "track-488655e3-d46c-42af-accd-62a6307277de"
+        },
+        {
+          "trackId": "track-4093238c-8065-4b0c-903c-193036656561"
+        },
+        {
+          "trackId": "track-570f2ace-eb6e-498e-817a-0e5b8adc2c6f"
+        },
+        {
+          "trackId": "track-517f8b5b-281b-4e3d-92fa-65d4d8f8f3dc"
+        },
+        {
+          "trackId": "track-3f75f959-0d4d-4db2-be51-9977afbfede2"
+        },
+        {
+          "trackId": "track-32a22ca5-88cb-43ff-80a5-c297d4b4834f"
+        },
+        {
+          "trackId": "track-58c4dae0-13c4-4104-ac53-66c38a84c616"
+        },
+        {
+          "trackId": "track-95820313-46ad-4dba-b689-2e413d62e343"
+        },
+        {
+          "trackId": "track-d635f0e8-e223-4c1c-b2a5-36aaa390e0c9"
+        },
+        {
+          "trackId": "track-c396715d-c69b-4102-bf9c-59cd4d565561"
+        }
+      ]
+    },
+    {
+      "id": "m-express",
+      "routeId": "meridian",
+      "name": "Meridian express",
+      "kind": "express",
+      "stationIds": [
+        "wembley",
+        "neasden",
+        "willesden",
+        "kilburn",
+        "westhampstead",
+        "finchleyroad",
+        "swisscottage",
+        "stjohnswood",
+        "bakerstreet",
+        "bondstreet",
+        "greenpark",
+        "westminster",
+        "waterloo",
+        "southwark",
+        "londonbridge",
+        "bermondsey",
+        "canadawater",
+        "canarywharf",
+        "northgreenwich",
+        "canningtown",
+        "westham",
+        "stratford"
+      ],
+      "skippedStationIds": [
+        "neasden",
+        "willesden",
+        "kilburn",
+        "finchleyroad",
+        "swisscottage",
+        "stjohnswood",
+        "southwark",
+        "bermondsey",
+        "northgreenwich",
+        "westham"
+      ],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 6,
+      "speed": 58,
+      "dwell": 30,
+      "stopPattern": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        true
+      ],
+      "trackPath": [
+        {
+          "trackId": "track-b318ce28-58b1-4f55-a60f-f21ef40f0145"
+        },
+        {
+          "trackId": "track-10807b09-071c-4159-b75a-7ba45a2166bb"
+        },
+        {
+          "trackId": "track-7ccfc668-1cd8-4043-92e7-d21bbaca3628"
+        },
+        {
+          "trackId": "track-98280e29-304f-4a8d-946d-a53808214592"
+        },
+        {
+          "trackId": "track-e0b17904-5321-42e4-b52f-f9a5506d5e5b"
+        },
+        {
+          "trackId": "track-6a2ea70a-9e41-4df9-a497-77f4666aa511"
+        },
+        {
+          "trackId": "track-79447630-33a3-446f-8df8-bf4182b989c2"
+        },
+        {
+          "trackId": "track-c3be84b7-55b1-4958-97f5-18811bb32114"
+        },
+        {
+          "trackId": "track-0ed84676-a96b-4326-99ad-47977c7392a7"
+        },
+        {
+          "trackId": "track-19a238e7-0efe-4a40-b7b6-25dfa0c95dd5"
+        },
+        {
+          "trackId": "track-e87566dc-f7a3-485e-9f5d-2bdd3d02bb7b"
+        },
+        {
+          "trackId": "track-72c94ea2-c17e-4deb-933f-c22038260dbb"
+        },
+        {
+          "trackId": "track-488655e3-d46c-42af-accd-62a6307277de"
+        },
+        {
+          "trackId": "track-4093238c-8065-4b0c-903c-193036656561"
+        },
+        {
+          "trackId": "track-570f2ace-eb6e-498e-817a-0e5b8adc2c6f"
+        },
+        {
+          "trackId": "track-517f8b5b-281b-4e3d-92fa-65d4d8f8f3dc"
+        },
+        {
+          "trackId": "track-3f75f959-0d4d-4db2-be51-9977afbfede2"
+        },
+        {
+          "trackId": "track-32a22ca5-88cb-43ff-80a5-c297d4b4834f"
+        },
+        {
+          "trackId": "track-58c4dae0-13c4-4104-ac53-66c38a84c616"
+        },
+        {
+          "trackId": "track-95820313-46ad-4dba-b689-2e413d62e343"
+        },
+        {
+          "trackId": "track-d635f0e8-e223-4c1c-b2a5-36aaa390e0c9"
+        },
+        {
+          "trackId": "track-c396715d-c69b-4102-bf9c-59cd4d565561"
+        }
+      ]
+    },
+    {
+      "id": "t-local",
+      "routeId": "thames",
+      "name": "Paddington → Stratford",
+      "kind": "local",
+      "stationIds": [
+        "paddington",
+        "lancastergate",
+        "marblearch",
+        "bondstreet",
+        "oxfordcircus",
+        "tottenhamcourt",
+        "holborn",
+        "stpauls",
+        "bank",
+        "liverpoolstreet",
+        "whitechapel",
+        "mileend",
+        "bowroad",
+        "stratford"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 4,
+      "speed": 42,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-52d729e3-b8d4-42e6-a0a7-5380a469ba06"
+        },
+        {
+          "trackId": "track-bd7571b3-a8c2-4be4-a003-ca4368a009b6"
+        },
+        {
+          "trackId": "track-79e7e1b9-7f13-4d13-a72e-a442677e4c52"
+        },
+        {
+          "trackId": "track-cf8d15f1-9fa2-4f2f-82f1-a47e54f9b0b2"
+        },
+        {
+          "trackId": "track-cfa2f547-f07a-4de4-999a-f5cb317cc129"
+        },
+        {
+          "trackId": "track-f9d6727a-9b76-4130-83db-b56f6b5c6171"
+        },
+        {
+          "trackId": "track-95118ff9-767d-4799-8830-622074dbc7ba"
+        },
+        {
+          "trackId": "track-3dc772ae-bc45-4914-8d7c-658388fd6cd1"
+        },
+        {
+          "trackId": "track-2ce06074-c094-4960-85fb-d106f214d036"
+        },
+        {
+          "trackId": "track-dfa918db-698f-4b80-980f-411440a6f5a7"
+        },
+        {
+          "trackId": "track-78170198-82fe-4d06-ade3-ae12d2a3615a"
+        },
+        {
+          "trackId": "track-ed3972b7-40a6-4012-82ed-3f99cc1faf91"
+        },
+        {
+          "trackId": "track-b78d5bb3-4637-4c31-813e-a072a7246eff"
+        }
+      ]
+    },
+    {
+      "id": "n-west",
+      "routeId": "northern",
+      "name": "Charing Cross branch → Battersea",
+      "kind": "local",
+      "stationIds": [
+        "camdentown",
+        "mornington",
+        "euston",
+        "tottenhamcourt",
+        "charingcross",
+        "embankment",
+        "waterloo",
+        "elephant",
+        "kennington",
+        "battersea"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 6,
+      "speed": 40,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-37757f15-e094-488e-84ce-4f4f81adfe11"
+        },
+        {
+          "trackId": "track-80e65fb8-7b72-4bc0-8663-a8caa3b37c45"
+        },
+        {
+          "trackId": "track-484c9fdb-48fd-459e-a315-0d6448019b45"
+        },
+        {
+          "trackId": "track-99db41ff-c31f-4f39-b835-1c7a4491e8ef"
+        },
+        {
+          "trackId": "track-09fd42e5-a5cf-41e4-90b8-761fd1091cb2"
+        },
+        {
+          "trackId": "track-e7b4c3e8-063a-489a-826b-c61de275cc79"
+        },
+        {
+          "trackId": "track-f8b4b1ba-b8f0-48a0-824a-79e38afc1467"
+        },
+        {
+          "trackId": "track-93d3de98-0ddc-4ebc-9f7d-39fb8d7e15d2"
+        },
+        {
+          "trackId": "track-7f52ef4b-5285-4035-8d1d-8bd69e635107"
+        }
+      ]
+    },
+    {
+      "id": "n-east",
+      "routeId": "northern",
+      "name": "City branch → Brixton",
+      "kind": "local",
+      "stationIds": [
+        "camdentown",
+        "kingscross",
+        "angel",
+        "oldstreet",
+        "moorgate",
+        "bank",
+        "londonbridge",
+        "elephant",
+        "kennington",
+        "oval",
+        "stockwell",
+        "brixton"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 6,
+      "speed": 40,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-56e0bccd-e42b-4a55-8f30-9ea977e262dc"
+        },
+        {
+          "trackId": "track-a650feb0-4055-4f4b-bc52-26e53b61cf8b"
+        },
+        {
+          "trackId": "track-169620bb-f6c4-4fca-ba86-9b438ad43926"
+        },
+        {
+          "trackId": "track-28d8d864-966b-43af-b119-0ba925502e79"
+        },
+        {
+          "trackId": "track-ed6a824f-74f2-4131-9c81-6daec366513d"
+        },
+        {
+          "trackId": "track-eec6efeb-d775-4be2-9d91-1e760e7a9e7b"
+        },
+        {
+          "trackId": "track-bd2c627a-6489-4c98-aabb-736cc9343e99"
+        },
+        {
+          "trackId": "track-93d3de98-0ddc-4ebc-9f7d-39fb8d7e15d2"
+        },
+        {
+          "trackId": "track-db701e4b-70c0-4481-a95b-4c788e63abf0"
+        },
+        {
+          "trackId": "track-d15883bb-f7a9-414d-9f9f-9611ce933df4"
+        },
+        {
+          "trackId": "track-6a482939-be09-470e-86ab-12054c40f910"
+        }
+      ]
+    },
+    {
+      "id": "o-loop",
+      "routeId": "orbital",
+      "name": "Central loop",
+      "kind": "local",
+      "stationIds": [
+        "paddington",
+        "bakerstreet",
+        "kingscross",
+        "moorgate",
+        "liverpoolstreet",
+        "bank",
+        "embankment",
+        "westminster",
+        "victoria",
+        "sloane",
+        "southkensington",
+        "highstreetkensington",
+        "nottinghill"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": true,
+      "direction": "both",
+      "headway": 7,
+      "speed": 36,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-435807fc-31a8-4993-95d0-91b37de1a4f5"
+        },
+        {
+          "trackId": "track-a873fc30-d6c6-457e-b8d6-4d7601fdba95"
+        },
+        {
+          "trackId": "track-3a6240a7-c431-4fc8-9ec9-488a43d65742"
+        },
+        {
+          "trackId": "track-9cd4097b-4ab1-4024-9712-9812c6a0ad2c"
+        },
+        {
+          "trackId": "track-2ce06074-c094-4960-85fb-d106f214d036",
+          "reverse": true
+        },
+        {
+          "trackId": "track-2bf0c433-f097-40b6-9881-0fa5cb2ce131"
+        },
+        {
+          "trackId": "track-42cb45cc-8647-43b1-a32c-832153cb7cdb"
+        },
+        {
+          "trackId": "track-778bc37e-f1fc-49a2-8884-dac4427e38a3"
+        },
+        {
+          "trackId": "track-b1a1a298-0bd7-4e1c-a840-96803ea12d88"
+        },
+        {
+          "trackId": "track-ea070327-1963-4e25-8324-5fa26f5c45f1"
+        },
+        {
+          "trackId": "track-0e803724-af31-4895-ade9-60768bfe122a"
+        },
+        {
+          "trackId": "track-8d046b35-a988-4b34-9042-602f29317d6b"
+        },
+        {
+          "trackId": "track-c1c53964-5255-42f1-9eaa-5bca79ea34b2"
+        }
+      ]
+    },
+    {
+      "id": "x-limited",
+      "routeId": "crosscity",
+      "name": "West–east limited",
+      "kind": "limited",
+      "stationIds": [
+        "paddington",
+        "bondstreet",
+        "tottenhamcourt",
+        "liverpoolstreet",
+        "whitechapel",
+        "canarywharf",
+        "canningtown",
+        "stratford"
+      ],
+      "skippedStationIds": [
+        "tottenhamcourt",
+        "whitechapel",
+        "canningtown"
+      ],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 8,
+      "speed": 70,
+      "dwell": 45,
+      "trackPath": [
+        {
+          "trackId": "track-b520adbb-81e6-4152-a1c7-3aaf3e1cd324"
+        },
+        {
+          "trackId": "track-7a35301a-c135-4736-8dff-162669739827"
+        },
+        {
+          "trackId": "track-af22be57-625c-4034-8bc3-45e249d98c04"
+        },
+        {
+          "trackId": "track-dfa918db-698f-4b80-980f-411440a6f5a7"
+        },
+        {
+          "trackId": "track-1d916333-3683-4f54-9768-7228aa17f69c"
+        },
+        {
+          "trackId": "track-f07e376b-7cca-42f0-bf6d-a4ba997d2dc4"
+        },
+        {
+          "trackId": "track-7737a3fb-62f9-4a7e-9fe0-f014ec5fbfe3"
+        }
+      ]
+    },
+    {
+      "id": "s-local",
+      "routeId": "victoria",
+      "name": "Euston → Brixton",
+      "kind": "local",
+      "stationIds": [
+        "euston",
+        "oxfordcircus",
+        "greenpark",
+        "victoria",
+        "stockwell",
+        "brixton"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 4,
+      "speed": 46,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-632a4254-5ac5-418d-a67d-d3ee5fe00de2"
+        },
+        {
+          "trackId": "track-8c25ac96-5500-4096-842d-312e8f4077f1"
+        },
+        {
+          "trackId": "track-5221fbe8-c50e-4b69-ab9f-aadd2c27d3a4"
+        },
+        {
+          "trackId": "track-44952afb-0566-40a8-b9cc-50e8a6cc9b20"
+        },
+        {
+          "trackId": "track-6a482939-be09-470e-86ab-12054c40f910"
+        }
+      ]
+    },
+    {
+      "id": "d-shuttle",
+      "routeId": "docklands",
+      "name": "Docklands shuttle",
+      "kind": "shuttle",
+      "stationIds": [
+        "bank",
+        "canadawater",
+        "canarywharf",
+        "northgreenwich",
+        "canningtown"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "both",
+      "headway": 8,
+      "speed": 35,
+      "dwell": 30,
+      "trackPath": [
+        {
+          "trackId": "track-278e1339-64d2-42fe-a9fb-5c3d1111188e"
+        },
+        {
+          "trackId": "track-32a22ca5-88cb-43ff-80a5-c297d4b4834f"
+        },
+        {
+          "trackId": "track-58c4dae0-13c4-4104-ac53-66c38a84c616"
+        },
+        {
+          "trackId": "track-95820313-46ad-4dba-b689-2e413d62e343"
+        }
+      ]
+    },
+    {
+      "id": "workshop-orbital-branch",
+      "routeId": "workshop-orbital",
+      "name": "One lap → Workshop Junction → Notting Hill",
+      "kind": "local",
+      "stationIds": [
+        "paddington",
+        "bakerstreet",
+        "kingscross",
+        "moorgate",
+        "liverpoolstreet",
+        "bank",
+        "embankment",
+        "westminster",
+        "victoria",
+        "sloane",
+        "southkensington",
+        "highstreetkensington",
+        "nottinghill",
+        "paddington",
+        "workshop-junction",
+        "nottinghill"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": false,
+      "direction": "forward",
+      "headway": 7,
+      "speed": 36,
+      "dwell": 30,
+      "stopPattern": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "trackPath": [
+        {
+          "trackId": "track-435807fc-31a8-4993-95d0-91b37de1a4f5"
+        },
+        {
+          "trackId": "track-a873fc30-d6c6-457e-b8d6-4d7601fdba95"
+        },
+        {
+          "trackId": "track-3a6240a7-c431-4fc8-9ec9-488a43d65742"
+        },
+        {
+          "trackId": "track-9cd4097b-4ab1-4024-9712-9812c6a0ad2c"
+        },
+        {
+          "trackId": "track-2ce06074-c094-4960-85fb-d106f214d036",
+          "reverse": true
+        },
+        {
+          "trackId": "track-2bf0c433-f097-40b6-9881-0fa5cb2ce131"
+        },
+        {
+          "trackId": "track-42cb45cc-8647-43b1-a32c-832153cb7cdb"
+        },
+        {
+          "trackId": "track-778bc37e-f1fc-49a2-8884-dac4427e38a3"
+        },
+        {
+          "trackId": "track-b1a1a298-0bd7-4e1c-a840-96803ea12d88"
+        },
+        {
+          "trackId": "track-ea070327-1963-4e25-8324-5fa26f5c45f1"
+        },
+        {
+          "trackId": "track-0e803724-af31-4895-ade9-60768bfe122a"
+        },
+        {
+          "trackId": "track-8d046b35-a988-4b34-9042-602f29317d6b"
+        },
+        {
+          "trackId": "track-c1c53964-5255-42f1-9eaa-5bca79ea34b2"
+        },
+        {
+          "trackId": "track-11824eb4-915d-4334-ba66-4b2216b81bc4"
+        },
+        {
+          "trackId": "track-1aaed96b-b1d9-4652-8376-be5334b8949b"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "title": "Rapid transit — concepts and network topology",
+      "url": "https://en.wikipedia.org/wiki/Rapid_transit",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "London Underground — geographic inspiration only",
+      "url": "https://en.wikipedia.org/wiki/London_Underground",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    }
+  ],
+  "dataStatus": "demo",
+  "center": [
+    51.515,
+    -0.11
+  ],
+  "zoom": 12,
+  "updatedAt": "2026-10-19T10:46:08.891Z",
+  "junctions": [
+    {
+      "id": "junction-3735adba-f621-4046-8ce3-da31385ef411",
+      "name": "Finchley Road approach A",
+      "lat": 51.546959870442684,
+      "lng": -0.18390833610089885
+    },
+    {
+      "id": "junction-a88cd05b-8a57-415d-a588-0e3df9e8b954",
+      "name": "Finchley Road approach B",
+      "lat": 51.545282413534345,
+      "lng": -0.17817209389386335
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track-b318ce28-58b1-4f55-a60f-f21ef40f0145",
+      "name": "Wembley Park — Neasden",
+      "fromId": "wembley",
+      "toId": "neasden",
+      "geometry": [
+        [
+          51.5635,
+          -0.2795
+        ],
+        [
+          51.5542,
+          -0.2504
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-10807b09-071c-4159-b75a-7ba45a2166bb",
+      "name": "Neasden — Willesden Green",
+      "fromId": "neasden",
+      "toId": "willesden",
+      "geometry": [
+        [
+          51.5542,
+          -0.2504
+        ],
+        [
+          51.5492,
+          -0.2215
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-7ccfc668-1cd8-4043-92e7-d21bbaca3628",
+      "name": "Willesden Green — Kilburn",
+      "fromId": "willesden",
+      "toId": "kilburn",
+      "geometry": [
+        [
+          51.5492,
+          -0.2215
+        ],
+        [
+          51.5469,
+          -0.2047
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-98280e29-304f-4a8d-946d-a53808214592",
+      "name": "Kilburn — West Hampstead",
+      "fromId": "kilburn",
+      "toId": "westhampstead",
+      "geometry": [
+        [
+          51.5469,
+          -0.2047
+        ],
+        [
+          51.5467,
+          -0.1906
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-c3be84b7-55b1-4958-97f5-18811bb32114",
+      "name": "Swiss Cottage — St John's Wood",
+      "fromId": "swisscottage",
+      "toId": "stjohnswood",
+      "geometry": [
+        [
+          51.543,
+          -0.1755
+        ],
+        [
+          51.5347,
+          -0.174
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-0ed84676-a96b-4326-99ad-47977c7392a7",
+      "name": "St John's Wood — Baker Street",
+      "fromId": "stjohnswood",
+      "toId": "bakerstreet",
+      "geometry": [
+        [
+          51.5347,
+          -0.174
+        ],
+        [
+          51.5226,
+          -0.1571
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-19a238e7-0efe-4a40-b7b6-25dfa0c95dd5",
+      "name": "Baker Street — Bond Street",
+      "fromId": "bakerstreet",
+      "toId": "bondstreet",
+      "geometry": [
+        [
+          51.5226,
+          -0.1571
+        ],
+        [
+          51.5144,
+          -0.1494
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-e87566dc-f7a3-485e-9f5d-2bdd3d02bb7b",
+      "name": "Bond Street — Green Park",
+      "fromId": "bondstreet",
+      "toId": "greenpark",
+      "geometry": [
+        [
+          51.5144,
+          -0.1494
+        ],
+        [
+          51.5067,
+          -0.1429
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-72c94ea2-c17e-4deb-933f-c22038260dbb",
+      "name": "Green Park — Westminster",
+      "fromId": "greenpark",
+      "toId": "westminster",
+      "geometry": [
+        [
+          51.5067,
+          -0.1429
+        ],
+        [
+          51.501,
+          -0.1254
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-488655e3-d46c-42af-accd-62a6307277de",
+      "name": "Westminster — Waterloo",
+      "fromId": "westminster",
+      "toId": "waterloo",
+      "geometry": [
+        [
+          51.501,
+          -0.1254
+        ],
+        [
+          51.5036,
+          -0.1143
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-4093238c-8065-4b0c-903c-193036656561",
+      "name": "Waterloo — Southwark",
+      "fromId": "waterloo",
+      "toId": "southwark",
+      "geometry": [
+        [
+          51.5036,
+          -0.1143
+        ],
+        [
+          51.504,
+          -0.1052
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-570f2ace-eb6e-498e-817a-0e5b8adc2c6f",
+      "name": "Southwark — London Bridge",
+      "fromId": "southwark",
+      "toId": "londonbridge",
+      "geometry": [
+        [
+          51.504,
+          -0.1052
+        ],
+        [
+          51.5054,
+          -0.0861
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-517f8b5b-281b-4e3d-92fa-65d4d8f8f3dc",
+      "name": "London Bridge — Bermondsey",
+      "fromId": "londonbridge",
+      "toId": "bermondsey",
+      "geometry": [
+        [
+          51.5054,
+          -0.0861
+        ],
+        [
+          51.4981,
+          -0.0635
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-3f75f959-0d4d-4db2-be51-9977afbfede2",
+      "name": "Bermondsey — Canada Water",
+      "fromId": "bermondsey",
+      "toId": "canadawater",
+      "geometry": [
+        [
+          51.4981,
+          -0.0635
+        ],
+        [
+          51.4981,
+          -0.0497
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-32a22ca5-88cb-43ff-80a5-c297d4b4834f",
+      "name": "Canada Water — Canary Wharf",
+      "fromId": "canadawater",
+      "toId": "canarywharf",
+      "geometry": [
+        [
+          51.4981,
+          -0.0497
+        ],
+        [
+          51.5036,
+          -0.0195
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-58c4dae0-13c4-4104-ac53-66c38a84c616",
+      "name": "Canary Wharf — North Greenwich",
+      "fromId": "canarywharf",
+      "toId": "northgreenwich",
+      "geometry": [
+        [
+          51.5036,
+          -0.0195
+        ],
+        [
+          51.5003,
+          0.0039
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-95820313-46ad-4dba-b689-2e413d62e343",
+      "name": "North Greenwich — Canning Town",
+      "fromId": "northgreenwich",
+      "toId": "canningtown",
+      "geometry": [
+        [
+          51.5003,
+          0.0039
+        ],
+        [
+          51.5147,
+          0.0083
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-d635f0e8-e223-4c1c-b2a5-36aaa390e0c9",
+      "name": "Canning Town — West Ham",
+      "fromId": "canningtown",
+      "toId": "westham",
+      "geometry": [
+        [
+          51.5147,
+          0.0083
+        ],
+        [
+          51.5281,
+          0.0051
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-c396715d-c69b-4102-bf9c-59cd4d565561",
+      "name": "West Ham — Stratford",
+      "fromId": "westham",
+      "toId": "stratford",
+      "geometry": [
+        [
+          51.5281,
+          0.0051
+        ],
+        [
+          51.5413,
+          -0.0033
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-52d729e3-b8d4-42e6-a0a7-5380a469ba06",
+      "name": "Paddington — Lancaster Gate",
+      "fromId": "paddington",
+      "toId": "lancastergate",
+      "geometry": [
+        [
+          51.5154,
+          -0.1755
+        ],
+        [
+          51.5119,
+          -0.175
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-bd7571b3-a8c2-4be4-a003-ca4368a009b6",
+      "name": "Lancaster Gate — Marble Arch",
+      "fromId": "lancastergate",
+      "toId": "marblearch",
+      "geometry": [
+        [
+          51.5119,
+          -0.175
+        ],
+        [
+          51.5136,
+          -0.1586
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-79e7e1b9-7f13-4d13-a72e-a442677e4c52",
+      "name": "Marble Arch — Bond Street",
+      "fromId": "marblearch",
+      "toId": "bondstreet",
+      "geometry": [
+        [
+          51.5136,
+          -0.1586
+        ],
+        [
+          51.5144,
+          -0.1494
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-cf8d15f1-9fa2-4f2f-82f1-a47e54f9b0b2",
+      "name": "Bond Street — Oxford Circus",
+      "fromId": "bondstreet",
+      "toId": "oxfordcircus",
+      "geometry": [
+        [
+          51.5144,
+          -0.1494
+        ],
+        [
+          51.5152,
+          -0.1419
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-cfa2f547-f07a-4de4-999a-f5cb317cc129",
+      "name": "Oxford Circus — Tottenham Court Road",
+      "fromId": "oxfordcircus",
+      "toId": "tottenhamcourt",
+      "geometry": [
+        [
+          51.5152,
+          -0.1419
+        ],
+        [
+          51.5162,
+          -0.1309
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-f9d6727a-9b76-4130-83db-b56f6b5c6171",
+      "name": "Tottenham Court Road — Holborn",
+      "fromId": "tottenhamcourt",
+      "toId": "holborn",
+      "geometry": [
+        [
+          51.5162,
+          -0.1309
+        ],
+        [
+          51.5174,
+          -0.12
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-95118ff9-767d-4799-8830-622074dbc7ba",
+      "name": "Holborn — St Paul's",
+      "fromId": "holborn",
+      "toId": "stpauls",
+      "geometry": [
+        [
+          51.5174,
+          -0.12
+        ],
+        [
+          51.5146,
+          -0.0973
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-3dc772ae-bc45-4914-8d7c-658388fd6cd1",
+      "name": "St Paul's — Bank",
+      "fromId": "stpauls",
+      "toId": "bank",
+      "geometry": [
+        [
+          51.5146,
+          -0.0973
+        ],
+        [
+          51.5134,
+          -0.089
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-2ce06074-c094-4960-85fb-d106f214d036",
+      "name": "Bank — Liverpool Street",
+      "fromId": "bank",
+      "toId": "liverpoolstreet",
+      "geometry": [
+        [
+          51.5134,
+          -0.089
+        ],
+        [
+          51.5178,
+          -0.0823
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-dfa918db-698f-4b80-980f-411440a6f5a7",
+      "name": "Liverpool Street — Whitechapel",
+      "fromId": "liverpoolstreet",
+      "toId": "whitechapel",
+      "geometry": [
+        [
+          51.5178,
+          -0.0823
+        ],
+        [
+          51.5195,
+          -0.061
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-78170198-82fe-4d06-ade3-ae12d2a3615a",
+      "name": "Whitechapel — Mile End",
+      "fromId": "whitechapel",
+      "toId": "mileend",
+      "geometry": [
+        [
+          51.5195,
+          -0.061
+        ],
+        [
+          51.5252,
+          -0.0334
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-ed3972b7-40a6-4012-82ed-3f99cc1faf91",
+      "name": "Mile End — Bow Road",
+      "fromId": "mileend",
+      "toId": "bowroad",
+      "geometry": [
+        [
+          51.5252,
+          -0.0334
+        ],
+        [
+          51.527,
+          -0.0252
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-b78d5bb3-4637-4c31-813e-a072a7246eff",
+      "name": "Bow Road — Stratford",
+      "fromId": "bowroad",
+      "toId": "stratford",
+      "geometry": [
+        [
+          51.527,
+          -0.0252
+        ],
+        [
+          51.5413,
+          -0.0033
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-37757f15-e094-488e-84ce-4f4f81adfe11",
+      "name": "Camden Town — Mornington Crescent",
+      "fromId": "camdentown",
+      "toId": "mornington",
+      "geometry": [
+        [
+          51.5393,
+          -0.1427
+        ],
+        [
+          51.5344,
+          -0.1385
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-80e65fb8-7b72-4bc0-8663-a8caa3b37c45",
+      "name": "Mornington Crescent — Euston",
+      "fromId": "mornington",
+      "toId": "euston",
+      "geometry": [
+        [
+          51.5344,
+          -0.1385
+        ],
+        [
+          51.5282,
+          -0.1337
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-484c9fdb-48fd-459e-a315-0d6448019b45",
+      "name": "Euston — Tottenham Court Road",
+      "fromId": "euston",
+      "toId": "tottenhamcourt",
+      "geometry": [
+        [
+          51.5282,
+          -0.1337
+        ],
+        [
+          51.5162,
+          -0.1309
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-99db41ff-c31f-4f39-b835-1c7a4491e8ef",
+      "name": "Tottenham Court Road — Charing Cross",
+      "fromId": "tottenhamcourt",
+      "toId": "charingcross",
+      "geometry": [
+        [
+          51.5162,
+          -0.1309
+        ],
+        [
+          51.5081,
+          -0.1248
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-09fd42e5-a5cf-41e4-90b8-761fd1091cb2",
+      "name": "Charing Cross — Embankment",
+      "fromId": "charingcross",
+      "toId": "embankment",
+      "geometry": [
+        [
+          51.5081,
+          -0.1248
+        ],
+        [
+          51.5072,
+          -0.1224
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-e7b4c3e8-063a-489a-826b-c61de275cc79",
+      "name": "Embankment — Waterloo",
+      "fromId": "embankment",
+      "toId": "waterloo",
+      "geometry": [
+        [
+          51.5072,
+          -0.1224
+        ],
+        [
+          51.5036,
+          -0.1143
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-f8b4b1ba-b8f0-48a0-824a-79e38afc1467",
+      "name": "Waterloo — Elephant & Castle",
+      "fromId": "waterloo",
+      "toId": "elephant",
+      "geometry": [
+        [
+          51.5036,
+          -0.1143
+        ],
+        [
+          51.4945,
+          -0.1005
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-93d3de98-0ddc-4ebc-9f7d-39fb8d7e15d2",
+      "name": "Elephant & Castle — Kennington",
+      "fromId": "elephant",
+      "toId": "kennington",
+      "geometry": [
+        [
+          51.4945,
+          -0.1005
+        ],
+        [
+          51.4884,
+          -0.1053
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-7f52ef4b-5285-4035-8d1d-8bd69e635107",
+      "name": "Kennington — Battersea Power Station",
+      "fromId": "kennington",
+      "toId": "battersea",
+      "geometry": [
+        [
+          51.4884,
+          -0.1053
+        ],
+        [
+          51.4835,
+          -0.111
+        ],
+        [
+          51.4818,
+          -0.127
+        ],
+        [
+          51.4796,
+          -0.142
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-56e0bccd-e42b-4a55-8f30-9ea977e262dc",
+      "name": "Camden Town — King's Cross St Pancras",
+      "fromId": "camdentown",
+      "toId": "kingscross",
+      "geometry": [
+        [
+          51.5393,
+          -0.1427
+        ],
+        [
+          51.5308,
+          -0.1238
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-a650feb0-4055-4f4b-bc52-26e53b61cf8b",
+      "name": "King's Cross St Pancras — Angel",
+      "fromId": "kingscross",
+      "toId": "angel",
+      "geometry": [
+        [
+          51.5308,
+          -0.1238
+        ],
+        [
+          51.5327,
+          -0.1058
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-169620bb-f6c4-4fca-ba86-9b438ad43926",
+      "name": "Angel — Old Street",
+      "fromId": "angel",
+      "toId": "oldstreet",
+      "geometry": [
+        [
+          51.5327,
+          -0.1058
+        ],
+        [
+          51.5256,
+          -0.087
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-28d8d864-966b-43af-b119-0ba925502e79",
+      "name": "Old Street — Moorgate",
+      "fromId": "oldstreet",
+      "toId": "moorgate",
+      "geometry": [
+        [
+          51.5256,
+          -0.087
+        ],
+        [
+          51.5186,
+          -0.0886
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-ed6a824f-74f2-4131-9c81-6daec366513d",
+      "name": "Moorgate — Bank",
+      "fromId": "moorgate",
+      "toId": "bank",
+      "geometry": [
+        [
+          51.5186,
+          -0.0886
+        ],
+        [
+          51.5134,
+          -0.089
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-eec6efeb-d775-4be2-9d91-1e760e7a9e7b",
+      "name": "Bank — London Bridge",
+      "fromId": "bank",
+      "toId": "londonbridge",
+      "geometry": [
+        [
+          51.5134,
+          -0.089
+        ],
+        [
+          51.5054,
+          -0.0861
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-bd2c627a-6489-4c98-aabb-736cc9343e99",
+      "name": "London Bridge — Elephant & Castle",
+      "fromId": "londonbridge",
+      "toId": "elephant",
+      "geometry": [
+        [
+          51.5054,
+          -0.0861
+        ],
+        [
+          51.4945,
+          -0.1005
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-db701e4b-70c0-4481-a95b-4c788e63abf0",
+      "name": "Kennington — Oval",
+      "fromId": "kennington",
+      "toId": "oval",
+      "geometry": [
+        [
+          51.4884,
+          -0.1053
+        ],
+        [
+          51.4819,
+          -0.1125
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-d15883bb-f7a9-414d-9f9f-9611ce933df4",
+      "name": "Oval — Stockwell",
+      "fromId": "oval",
+      "toId": "stockwell",
+      "geometry": [
+        [
+          51.4819,
+          -0.1125
+        ],
+        [
+          51.4723,
+          -0.1229
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-6a482939-be09-470e-86ab-12054c40f910",
+      "name": "Stockwell — Brixton",
+      "fromId": "stockwell",
+      "toId": "brixton",
+      "geometry": [
+        [
+          51.4723,
+          -0.1229
+        ],
+        [
+          51.4626,
+          -0.1146
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-435807fc-31a8-4993-95d0-91b37de1a4f5",
+      "name": "Paddington — Baker Street",
+      "fromId": "paddington",
+      "toId": "bakerstreet",
+      "geometry": [
+        [
+          51.5154,
+          -0.1755
+        ],
+        [
+          51.5226,
+          -0.1571
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-a873fc30-d6c6-457e-b8d6-4d7601fdba95",
+      "name": "Baker Street — King's Cross St Pancras",
+      "fromId": "bakerstreet",
+      "toId": "kingscross",
+      "geometry": [
+        [
+          51.5226,
+          -0.1571
+        ],
+        [
+          51.5308,
+          -0.1238
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-3a6240a7-c431-4fc8-9ec9-488a43d65742",
+      "name": "King's Cross St Pancras — Moorgate",
+      "fromId": "kingscross",
+      "toId": "moorgate",
+      "geometry": [
+        [
+          51.5308,
+          -0.1238
+        ],
+        [
+          51.5186,
+          -0.0886
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-9cd4097b-4ab1-4024-9712-9812c6a0ad2c",
+      "name": "Moorgate — Liverpool Street",
+      "fromId": "moorgate",
+      "toId": "liverpoolstreet",
+      "geometry": [
+        [
+          51.5186,
+          -0.0886
+        ],
+        [
+          51.5178,
+          -0.0823
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-2bf0c433-f097-40b6-9881-0fa5cb2ce131",
+      "name": "Bank — Embankment",
+      "fromId": "bank",
+      "toId": "embankment",
+      "geometry": [
+        [
+          51.5134,
+          -0.089
+        ],
+        [
+          51.5072,
+          -0.1224
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-42cb45cc-8647-43b1-a32c-832153cb7cdb",
+      "name": "Embankment — Westminster",
+      "fromId": "embankment",
+      "toId": "westminster",
+      "geometry": [
+        [
+          51.5072,
+          -0.1224
+        ],
+        [
+          51.501,
+          -0.1254
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-778bc37e-f1fc-49a2-8884-dac4427e38a3",
+      "name": "Westminster — Victoria",
+      "fromId": "westminster",
+      "toId": "victoria",
+      "geometry": [
+        [
+          51.501,
+          -0.1254
+        ],
+        [
+          51.4964,
+          -0.1439
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-b1a1a298-0bd7-4e1c-a840-96803ea12d88",
+      "name": "Victoria — Sloane Square",
+      "fromId": "victoria",
+      "toId": "sloane",
+      "geometry": [
+        [
+          51.4964,
+          -0.1439
+        ],
+        [
+          51.4924,
+          -0.1565
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-ea070327-1963-4e25-8324-5fa26f5c45f1",
+      "name": "Sloane Square — South Kensington",
+      "fromId": "sloane",
+      "toId": "southkensington",
+      "geometry": [
+        [
+          51.4924,
+          -0.1565
+        ],
+        [
+          51.4941,
+          -0.1739
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-0e803724-af31-4895-ade9-60768bfe122a",
+      "name": "South Kensington — High Street Kensington",
+      "fromId": "southkensington",
+      "toId": "highstreetkensington",
+      "geometry": [
+        [
+          51.4941,
+          -0.1739
+        ],
+        [
+          51.5009,
+          -0.1925
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-8d046b35-a988-4b34-9042-602f29317d6b",
+      "name": "High Street Kensington — Notting Hill Gate",
+      "fromId": "highstreetkensington",
+      "toId": "nottinghill",
+      "geometry": [
+        [
+          51.5009,
+          -0.1925
+        ],
+        [
+          51.5091,
+          -0.196
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-c1c53964-5255-42f1-9eaa-5bca79ea34b2",
+      "name": "Notting Hill Gate — Paddington",
+      "fromId": "nottinghill",
+      "toId": "paddington",
+      "geometry": [
+        [
+          51.5091,
+          -0.196
+        ],
+        [
+          51.5154,
+          -0.1755
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-b520adbb-81e6-4152-a1c7-3aaf3e1cd324",
+      "name": "Paddington — Bond Street",
+      "fromId": "paddington",
+      "toId": "bondstreet",
+      "geometry": [
+        [
+          51.5154,
+          -0.1755
+        ],
+        [
+          51.5144,
+          -0.1494
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-7a35301a-c135-4736-8dff-162669739827",
+      "name": "Bond Street — Tottenham Court Road",
+      "fromId": "bondstreet",
+      "toId": "tottenhamcourt",
+      "geometry": [
+        [
+          51.5144,
+          -0.1494
+        ],
+        [
+          51.5162,
+          -0.1309
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-af22be57-625c-4034-8bc3-45e249d98c04",
+      "name": "Tottenham Court Road — Liverpool Street",
+      "fromId": "tottenhamcourt",
+      "toId": "liverpoolstreet",
+      "geometry": [
+        [
+          51.5162,
+          -0.1309
+        ],
+        [
+          51.5178,
+          -0.0823
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-1d916333-3683-4f54-9768-7228aa17f69c",
+      "name": "Whitechapel — Canary Wharf",
+      "fromId": "whitechapel",
+      "toId": "canarywharf",
+      "geometry": [
+        [
+          51.5195,
+          -0.061
+        ],
+        [
+          51.5036,
+          -0.0195
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-f07e376b-7cca-42f0-bf6d-a4ba997d2dc4",
+      "name": "Canary Wharf — Canning Town",
+      "fromId": "canarywharf",
+      "toId": "canningtown",
+      "geometry": [
+        [
+          51.5036,
+          -0.0195
+        ],
+        [
+          51.5147,
+          0.0083
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-7737a3fb-62f9-4a7e-9fe0-f014ec5fbfe3",
+      "name": "Canning Town — Stratford",
+      "fromId": "canningtown",
+      "toId": "stratford",
+      "geometry": [
+        [
+          51.5147,
+          0.0083
+        ],
+        [
+          51.5413,
+          -0.0033
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-632a4254-5ac5-418d-a67d-d3ee5fe00de2",
+      "name": "Euston — Oxford Circus",
+      "fromId": "euston",
+      "toId": "oxfordcircus",
+      "geometry": [
+        [
+          51.5282,
+          -0.1337
+        ],
+        [
+          51.5152,
+          -0.1419
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-8c25ac96-5500-4096-842d-312e8f4077f1",
+      "name": "Oxford Circus — Green Park",
+      "fromId": "oxfordcircus",
+      "toId": "greenpark",
+      "geometry": [
+        [
+          51.5152,
+          -0.1419
+        ],
+        [
+          51.5067,
+          -0.1429
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-5221fbe8-c50e-4b69-ab9f-aadd2c27d3a4",
+      "name": "Green Park — Victoria",
+      "fromId": "greenpark",
+      "toId": "victoria",
+      "geometry": [
+        [
+          51.5067,
+          -0.1429
+        ],
+        [
+          51.4964,
+          -0.1439
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-44952afb-0566-40a8-b9cc-50e8a6cc9b20",
+      "name": "Victoria — Stockwell",
+      "fromId": "victoria",
+      "toId": "stockwell",
+      "geometry": [
+        [
+          51.4964,
+          -0.1439
+        ],
+        [
+          51.4723,
+          -0.1229
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-278e1339-64d2-42fe-a9fb-5c3d1111188e",
+      "name": "Bank — Canada Water",
+      "fromId": "bank",
+      "toId": "canadawater",
+      "geometry": [
+        [
+          51.5134,
+          -0.089
+        ],
+        [
+          51.4981,
+          -0.0497
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-e0b17904-5321-42e4-b52f-f9a5506d5e5b",
+      "name": "West Hampstead — Finchley Road",
+      "fromId": "westhampstead",
+      "toId": "junction-3735adba-f621-4046-8ce3-da31385ef411",
+      "geometry": [
+        [
+          51.5467,
+          -0.1906
+        ],
+        [
+          51.546959870442684,
+          -0.18390833610089885
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-e04c2676-a222-453e-9474-c8c3a4c90a8b",
+      "name": "West Hampstead — Finchley Road",
+      "fromId": "junction-3735adba-f621-4046-8ce3-da31385ef411",
+      "toId": "finchleyroad",
+      "geometry": [
+        [
+          51.546959870442684,
+          -0.18390833610089885
+        ],
+        [
+          51.5471,
+          -0.1803
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-48121d9b-962a-4883-9cc1-4723965558b0",
+      "name": "Finchley Road — Swiss Cottage",
+      "fromId": "finchleyroad",
+      "toId": "junction-a88cd05b-8a57-415d-a588-0e3df9e8b954",
+      "geometry": [
+        [
+          51.5471,
+          -0.1803
+        ],
+        [
+          51.545282413534345,
+          -0.17817209389386335
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-79447630-33a3-446f-8df8-bf4182b989c2",
+      "name": "Finchley Road — Swiss Cottage",
+      "fromId": "junction-a88cd05b-8a57-415d-a588-0e3df9e8b954",
+      "toId": "swisscottage",
+      "geometry": [
+        [
+          51.545282413534345,
+          -0.17817209389386335
+        ],
+        [
+          51.543,
+          -0.1755
+        ]
+      ],
+      "kind": "main",
+      "direction": "both"
+    },
+    {
+      "id": "track-6a2ea70a-9e41-4df9-a497-77f4666aa511",
+      "name": "Finchley Road training passing loop bypass",
+      "fromId": "junction-3735adba-f621-4046-8ce3-da31385ef411",
+      "toId": "junction-a88cd05b-8a57-415d-a588-0e3df9e8b954",
+      "geometry": [
+        [
+          51.546959870442684,
+          -0.18390833610089885
+        ],
+        [
+          51.54743210753423,
+          -0.18232541081938994
+        ],
+        [
+          51.547751064225366,
+          -0.17980768054438392
+        ],
+        [
+          51.54634176054381,
+          -0.17859685338483391
+        ],
+        [
+          51.545282413534345,
+          -0.17817209389386335
+        ]
+      ],
+      "kind": "passing",
+      "direction": "both"
+    },
+    {
+      "id": "track-11824eb4-915d-4334-ba66-4b2216b81bc4",
+      "name": "Paddington — Workshop Junction (fictional)",
+      "fromId": "paddington",
+      "toId": "workshop-junction",
+      "geometry": [
+        [
+          51.5154,
+          -0.1755
+        ],
+        [
+          51.5278,
+          -0.2138
+        ]
+      ],
+      "kind": "connector",
+      "direction": "both"
+    },
+    {
+      "id": "track-1aaed96b-b1d9-4652-8376-be5334b8949b",
+      "name": "Workshop Junction (fictional) — Notting Hill Gate",
+      "fromId": "workshop-junction",
+      "toId": "nottinghill",
+      "geometry": [
+        [
+          51.5278,
+          -0.2138
+        ],
+        [
+          51.5091,
+          -0.196
+        ]
+      ],
+      "kind": "connector",
+      "direction": "both"
+    }
+  ],
+  "passingLoops": [
+    {
+      "id": "passing-8f3b7312-0ce9-4d6b-b8a2-810e5bad7c51",
+      "name": "Finchley Road training passing loop",
+      "stationId": "finchleyroad",
+      "entryId": "junction-3735adba-f621-4046-8ce3-da31385ef411",
+      "exitId": "junction-a88cd05b-8a57-415d-a588-0e3df9e8b954",
+      "mainTrackIds": [
+        "track-e04c2676-a222-453e-9474-c8c3a4c90a8b",
+        "track-48121d9b-962a-4883-9cc1-4723965558b0"
+      ],
+      "bypassTrackIds": [
+        "track-6a2ea70a-9e41-4df9-a497-77f4666aa511"
+      ]
+    }
+  ]
+}
