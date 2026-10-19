@@ -25,3 +25,11 @@ The 85 model tests cover explicit track connectivity/direction/speed limits, pla
 Live public Overpass retrieval previously returned server/rate-limit errors. Controlled endpoint/parser tests establish behavior, not public endpoint availability or complete worldwide geometry. The 234-entry directory is a source snapshot; Glasgow has sourced station topology with straight connections; the London demonstrations and track workshop are fictional. Train previews do not simulate signalling or collision avoidance.
 
 Public repository: [Roflu999/metroweave](https://github.com/Roflu999/metroweave). Website: [MetroWeave](https://roflu999.github.io/metroweave/). The deployment workflow runs the regression suite, server checks and Linux production build before publishing. Local browser test scripts accept `BASE_URL`, `CHROMIUM_EXECUTABLE` and `QA_OUTPUT_DIR` for independent reproduction on either origin.
+
+## Published upgrade
+
+[GitHub Actions run 39247780260](https://github.com/Roflu999/metroweave/actions/runs/39247780260) successfully ran npm ci, all 85 model tests, both server tests, the Linux production build and Pages deployment for application commit `68e90b3cad832611d86832a8bcf449139f60de70`.
+
+The deployed offline build is `66ac0bc95da5630c4826`: all seven offline workflows passed under the actual `/metroweave/` scope, including its exact 17-asset cache, fonts and PMTiles/GeoJSON reloads. All twelve original editing workflows and an uninterrupted run of all sixteen advanced workflows also passed on the public origin, with zero uncaught application errors. During hosted verification, two initial new-page navigations were interrupted by external connection resets/closures; the affected checks passed when retried. These were navigation failures, with no uncaught application errors.
+
+The portable `MetroWeave-ready.zip` was extracted into a fresh folder containing spaces. Its production server started with Node alone and no installed npm dependencies, and every one of the 17 listed offline assets returned HTTP 200 with non-empty content. The local Windows build has cache version `989cc5ab5c1b4a262ab8`; Linux line-ending normalization produces a different exact-byte cache version for the same application source.
