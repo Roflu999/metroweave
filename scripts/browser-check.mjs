@@ -59,7 +59,7 @@ try {
     .filter({ hasText: "World atlas" })
     .click();
   await page.getByRole("textbox", { name: "Search world atlas" }).fill("Tokyo");
-  await page.waitForTimeout(200);
+  await page.locator(".city-card").first().waitFor({ timeout: 15000 });
   console.log("Tokyo cards", await page.locator(".city-card").count());
   await page.screenshot({ path: path.join(output, "atlas-desktop.png") });
   await page.getByRole("button", { name: "Close dialog" }).click();

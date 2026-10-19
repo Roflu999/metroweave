@@ -8,6 +8,8 @@
 | Desktop and mobile visual checks | **1536 × 1000 and 390 × 844 reviewed; no horizontal overflow** |
 | Station-label collision audit | **34 visible labels; 0 overlaps in the audited view** |
 | Local production HTTP and repository-prefix asset paths | **Passed; Glasgow reference loads; no browser errors** |
+| Browser functional run on the public website | **12 of 12 stages passed; no uncaught page errors** |
+| Public GitHub Pages deployment | **Passed; Linux build/test and deployment succeeded** |
 | Directory source-to-output comparison | **234 source rows, 234 delivered entries; 0 missing and 0 extra** |
 
 The browser report ran against `http://127.0.0.1:5173` on 19 October 2026, from 10:02:29 to 10:03:06 UTC. Its twelve stages covered project/line creation, shared stations, express stop changes, branches and loops, geometry insertion/dragging, stop reordering/removal with undo/redo, global station deletion with undo/redo, autosave and JSON validation, journey planning, GeoJSON upload, GTFS ZIP upload, and an edited share-link project surviving reload.
@@ -18,4 +20,6 @@ Live OSM retrieval was **not verified successfully**: public Overpass endpoints 
 
 The Glasgow example has sourced station positions and the official 15-station circular stopping order, drawn as straight station connections. It does **not** claim surveyed track geometry or a live timetable. The London example is explicitly fictional. The 234-entry atlas is a system directory, not a verified worldwide track database.
 
-GitHub Pages publishing remains **pending repository selection**. A deployment workflow is included; no GitHub deployment or public URL is claimed by these checks. The completed production build is running locally at http://127.0.0.1:5173. HTTP checks confirmed the application and both datasets return 200, source files are not served, unsupported methods return 405, and the same dist artifact runs successfully under a simulated GitHub repository prefix.
+Public repository: [Roflu999/metroweave](https://github.com/Roflu999/metroweave). Live website: [MetroWeave](https://roflu999.github.io/metroweave/). [GitHub Actions run 39237247881](https://github.com/Roflu999/metroweave/actions/runs/39237247881) completed successfully, including npm ci, all 37 tests, the Linux production build, artifact upload and Pages deployment. The deployed application commit is `b7409db8deab8cbef1e66c3bfa488cc3d5c43ee5`. GitHub serves the page over HTTPS with HTTP 200. The completed production build is running locally at http://127.0.0.1:5173. HTTP checks confirmed the application and both datasets return 200, source files are not served, unsupported methods return 405, and the same dist artifact runs successfully under a simulated GitHub repository prefix.
+
+The public website passed the same twelve isolated browser workflows, including real GTFS/GeoJSON file imports and self-contained share links under the `/metroweave/` repository prefix. Edited shared maps survive reload on the public origin. The live directory and Glasgow reference files return HTTP 200 and contain 234 system entries and 15 stations respectively.

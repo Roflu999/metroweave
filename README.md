@@ -2,6 +2,8 @@
 
 A local-first transit map studio inspired by [MetroDreamin](https://metrodreamin.com/), built with an independent interface and codebase. Design branching lines, loops and express services on an interactive geographic map, or import real transit data.
 
+**Live app:** [roflu999.github.io/metroweave](https://roflu999.github.io/metroweave/) · **Source:** [Roflu999/metroweave](https://github.com/Roflu999/metroweave)
+
 ## Run locally
 
 Requires Node.js 22.12 or newer (Node 24 recommended).
