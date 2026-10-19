@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "id": "glasgow-verified-topology",
+  "name": "Glasgow Subway · real station topology",
+  "city": "Glasgow",
+  "country": "United Kingdom",
+  "dataStatus": "imported",
+  "description": "Station topology verified against SPT's published map on 2026-10-19: all 15 stations, clockwise Outer Circle and anticlockwise Inner Circle. Coordinates come from individually linked Wikipedia station articles. Straight connections are not surveyed track geometry. No operating times were verified: frequency, speed and dwell are editable planning assumptions. This reference does not report live service conditions.",
+  "center": [
+    55.8608,
+    -4.2854
+  ],
+  "zoom": 14,
+  "updatedAt": "2026-10-19T09:57:10.513Z",
+  "stations": [
+    {
+      "id": "glasgow-buchanan-street",
+      "name": "Buchanan Street",
+      "lat": 55.8624566,
+      "lng": -4.2534051
+    },
+    {
+      "id": "glasgow-st-enoch",
+      "name": "St Enoch",
+      "lat": 55.85694444,
+      "lng": -4.25583333
+    },
+    {
+      "id": "glasgow-bridge-street",
+      "name": "Bridge Street",
+      "lat": 55.85166667,
+      "lng": -4.25861111
+    },
+    {
+      "id": "glasgow-west-street",
+      "name": "West Street",
+      "lat": 55.85,
+      "lng": -4.26527778
+    },
+    {
+      "id": "glasgow-shields-road",
+      "name": "Shields Road",
+      "lat": 55.85027778,
+      "lng": -4.27444444
+    },
+    {
+      "id": "glasgow-kinning-park",
+      "name": "Kinning Park",
+      "lat": 55.85083333,
+      "lng": -4.28805556
+    },
+    {
+      "id": "glasgow-cessnock",
+      "name": "Cessnock",
+      "lat": 55.8525,
+      "lng": -4.29583333
+    },
+    {
+      "id": "glasgow-ibrox",
+      "name": "Ibrox",
+      "lat": 55.85444444,
+      "lng": -4.30527778
+    },
+    {
+      "id": "glasgow-govan",
+      "name": "Govan",
+      "lat": 55.86222222,
+      "lng": -4.31055556
+    },
+    {
+      "id": "glasgow-partick",
+      "name": "Partick",
+      "lat": 55.8698,
+      "lng": -4.3092
+    },
+    {
+      "id": "glasgow-kelvinhall",
+      "name": "Kelvinhall",
+      "lat": 55.87111111,
+      "lng": -4.30055556
+    },
+    {
+      "id": "glasgow-hillhead",
+      "name": "Hillhead",
+      "lat": 55.87583333,
+      "lng": -4.29222222
+    },
+    {
+      "id": "glasgow-kelvinbridge",
+      "name": "Kelvinbridge",
+      "lat": 55.87416667,
+      "lng": -4.28055556
+    },
+    {
+      "id": "glasgow-st-george-s-cross",
+      "name": "St George's Cross",
+      "lat": 55.87194444,
+      "lng": -4.26972222
+    },
+    {
+      "id": "glasgow-cowcaddens",
+      "name": "Cowcaddens",
+      "lat": 55.86833333,
+      "lng": -4.25916667
+    }
+  ],
+  "routes": [
+    {
+      "id": "glasgow-outer",
+      "name": "Outer Circle · clockwise",
+      "shortName": "O",
+      "color": "#f47b20",
+      "mode": "metro",
+      "visible": true
+    },
+    {
+      "id": "glasgow-inner",
+      "name": "Inner Circle · anticlockwise",
+      "shortName": "I",
+      "color": "#808c9e",
+      "mode": "metro",
+      "visible": true
+    }
+  ],
+  "services": [
+    {
+      "id": "glasgow-outer-service",
+      "routeId": "glasgow-outer",
+      "name": "Outer Circle · clockwise",
+      "kind": "local",
+      "stationIds": [
+        "glasgow-buchanan-street",
+        "glasgow-st-enoch",
+        "glasgow-bridge-street",
+        "glasgow-west-street",
+        "glasgow-shields-road",
+        "glasgow-kinning-park",
+        "glasgow-cessnock",
+        "glasgow-ibrox",
+        "glasgow-govan",
+        "glasgow-partick",
+        "glasgow-kelvinhall",
+        "glasgow-hillhead",
+        "glasgow-kelvinbridge",
+        "glasgow-st-george-s-cross",
+        "glasgow-cowcaddens"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": true,
+      "direction": "forward",
+      "headway": 8,
+      "speed": 36,
+      "dwell": 30
+    },
+    {
+      "id": "glasgow-inner-service",
+      "routeId": "glasgow-inner",
+      "name": "Inner Circle · anticlockwise",
+      "kind": "local",
+      "stationIds": [
+        "glasgow-buchanan-street",
+        "glasgow-cowcaddens",
+        "glasgow-st-george-s-cross",
+        "glasgow-kelvinbridge",
+        "glasgow-hillhead",
+        "glasgow-kelvinhall",
+        "glasgow-partick",
+        "glasgow-govan",
+        "glasgow-ibrox",
+        "glasgow-cessnock",
+        "glasgow-kinning-park",
+        "glasgow-shields-road",
+        "glasgow-west-street",
+        "glasgow-bridge-street",
+        "glasgow-st-enoch"
+      ],
+      "skippedStationIds": [],
+      "waypoints": {},
+      "loop": true,
+      "direction": "forward",
+      "headway": 8,
+      "speed": 36,
+      "dwell": 30
+    }
+  ],
+  "sources": [
+    {
+      "title": "SPT Subway maps & stations — both official stopping sequences",
+      "url": "https://www.spt.co.uk/travel-with-spt/subway/maps-stations/",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Buchanan Street subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Buchanan_Street_subway_station&oldid=1370883676",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "St Enoch subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=St_Enoch_subway_station&oldid=1370911597",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Bridge Street subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Bridge_Street_subway_station&oldid=1370882671",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "West Street subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=West_Street_subway_station&oldid=1370798352",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Shields Road subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Shields_Road_subway_station&oldid=1370902341",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Kinning Park subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Kinning_Park_subway_station&oldid=1369917264",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Cessnock subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Cessnock_subway_station&oldid=1369775123",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Ibrox subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Ibrox_subway_station&oldid=1369915472",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Govan subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Govan_subway_station&oldid=1370983314",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Partick station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Partick_station&oldid=1376353949",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Kelvinhall subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Kelvinhall_subway_station&oldid=1369916947",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Hillhead subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Hillhead_subway_station&oldid=1369914839",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Kelvinbridge subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Kelvinbridge_subway_station&oldid=1371202454",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "St George's Cross subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=St_George%27s_Cross_subway_station&oldid=1370911599",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    },
+    {
+      "title": "Cowcaddens subway station — coordinate reference",
+      "url": "https://en.wikipedia.org/w/index.php?title=Cowcaddens_subway_station&oldid=1370899935",
+      "license": "CC BY-SA 4.0",
+      "accessed": "2026-10-19"
+    }
+  ]
+}
